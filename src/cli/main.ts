@@ -7,6 +7,7 @@ import { musicCommands } from "./commands/music.js";
 import { recordCommands } from "./commands/record.js";
 import { takeCommands } from "./commands/takes.js";
 import { checkCommands } from "./commands/check.js";
+import { cutCommands } from "./commands/cut.js";
 import { output, type Output } from "./output.js";
 
 const program = new Command("reel")
@@ -20,6 +21,7 @@ musicCommands(program, out);
 recordCommands(program, out);
 takeCommands(program, out);
 checkCommands(program, out);
+cutCommands(program, out);
 
 try {
   await program.parseAsync(process.argv);
