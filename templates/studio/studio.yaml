@@ -1,0 +1,14 @@
+# The Reel studio: projects (projects/<key>/project.yaml), their missions, and the shared libraries (library/).
+# Keep it in git; recordings, takes, caches and secrets live in ~/.reel (REEL_DATA), never here.
+
+# Where the music library's files are (never committed). `reel music scan` adds what it finds there.
+music_root: ~/music
+# What a newly scanned track gets, until you edit it in library/music.yaml or the web UI.
+default_licence: ""
+default_attribution: ""
+
+# `reel serve`: the web UI. On 127.0.0.1 by default; to reach it on the LAN, set host: 0.0.0.0 and list the names
+# you use (e.g. the server's address) in allowed_hosts.
+port: 7779
+host: 127.0.0.1
+allowed_hosts: []

@@ -1,0 +1,15 @@
+# The narrators. A project's style names one (style.voice). price_per_1000 is what the provider charges per 1000
+# characters, for the estimates; check it against the provider's own page.
+voices:
+  wise-lady:
+    provider: replicate          # REPLICATE_API_TOKEN, or token: in ~/.reel/secrets/replicate.yaml
+    model: minimax/speech-02-hd
+    voice: English_Wiselady
+    language: en
+    price_per_1000: 0.1          # unverified: check https://replicate.com/minimax/speech-02-hd
+  tone:
+    provider: fake               # a test tone, free: for trying a film out
+    model: tone
+    voice: tone
+    language: en
+    price_per_1000: 0

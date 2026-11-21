@@ -1,0 +1,4 @@
+transitions:
+  crossfade: { kind: fade, length: 1 }
+  crossfade-short: { kind: fade, length: 0.5 }
+  fade-black: { kind: fadeblack, length: 1 }
