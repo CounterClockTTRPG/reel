@@ -35,6 +35,9 @@ makeCommands(program, out);
 serveCommands(program, out);
 appCommands(program, out);
 
+// Ctrl-C or a kill ends the run with process.exit, so the apps it started are stopped (src/app/serve.ts).
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => process.exit(130));
+
 try {
   await program.parseAsync(process.argv);
 } catch (e) {

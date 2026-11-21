@@ -68,7 +68,7 @@ export async function recordMission(opts: RecordOptions): Promise<RecordResult> 
   };
   if (opts.fresh) {
     if (!project.file.app.serve) throw new ReelError(2, `--fresh starts an app's data over: project ${project.key} has no app.serve`);
-    resetApp(project.key);
+    await resetApp(project);
     opts.log(`  ${project.key}'s app data starts over`);
   }
   return opts.dry ? go() : withMissionLock(project.key, mission.key, go, opts.log);

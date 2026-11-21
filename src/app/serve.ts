@@ -1,8 +1,13 @@
 // A project's app, started by Reel (app.serve in project.yaml): a separate instance with its data in the vault, so
 // recording never touches anyone's real data. Reel starts it when nothing answers on its port, waits until it's ready,
 // runs what needs it, and stops it again. One run per project uses it at a time.
+//
+// Reel only ever uses an app it started itself: it keeps a pid file (~/.reel/apps/<project>/serve.pid) while the app
+// runs. Anything else answering on the port is refused, so a recording never lands in the wrong app's data. Apps run
+// in a process group of their own, stopped as a group; a run that exits without its cleanup still stops them (an
+// exit handler), and `reel app stop` stops one a killed run left behind.
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, closeSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { secretsFor } from "../adapter/secrets.js";
 import { withAppLock } from "../jobs/lock.js";
@@ -13,6 +18,7 @@ import { authFile } from "../record/session.js";
 export const appDir = (projectKey: string) => join(vaultDir(), "apps", projectKey);
 export const appData = (projectKey: string) => join(appDir(projectKey), "data");
 export const serveLog = (projectKey: string) => join(appDir(projectKey), "serve.log");
+export const pidFile = (projectKey: string) => join(appDir(projectKey), "serve.pid");
 
 /** A serve setting with its placeholders filled: {port}, {data}; ~ expanded. */
 export function fill(project: Project, text: string): string {
@@ -35,46 +41,102 @@ export interface RunningApp {
   pid?: number;
 }
 
-/** What the port answers on the ready path: its status, or null when nothing listens. */
-async function probe(url: string): Promise<number | null> {
+type Probe = { status: number } | "nothing" | "busy";
+
+/** What the port answers on the ready path: a status, nothing listening, or no answer in time (busy). */
+async function probe(url: string): Promise<Probe> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(2000), redirect: "manual" });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: "manual" });
     await res.body?.cancel();
-    return res.status;
+    return { status: res.status };
+  } catch (e) {
+    const cause = (e as { cause?: { code?: string } }).cause?.code;
+    return cause === "ECONNREFUSED" || cause === "ECONNRESET" ? "nothing" : (e as Error).name === "TimeoutError" ? "busy" : "nothing";
+  }
+}
+
+const ready = (p: Probe) => typeof p === "object" && p.status >= 200 && p.status < 300;
+const tail = (file: string, n = 10) => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").slice(-n).join("\n") : "");
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/** The app a Reel run started and is still running, from its pid file. */
+function startedApp(projectKey: string): { pid: number; port: number } | null {
+  try {
+    const kept = JSON.parse(readFileSync(pidFile(projectKey), "utf8")) as { pid: number; port: number };
+    return alive(kept.pid) ? kept : null;
   } catch {
     return null;
   }
 }
 
-const ok = (status: number | null) => status !== null && status >= 200 && status < 400;
-const tail = (file: string, n = 10) => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").slice(-n).join("\n") : "");
+function killGroup(pid: number, signal: NodeJS.Signals) {
+  try {
+    process.kill(process.platform === "win32" ? pid : -pid, signal);
+  } catch {
+    try {
+      process.kill(pid, signal);
+    } catch {}
+  }
+}
+
+// Apps this process started: stopped when it exits, however it exits.
+const spawned = new Set<number>();
+let exitHook = false;
+function stopOnExit(pid: number) {
+  spawned.add(pid);
+  if (exitHook) return;
+  exitHook = true;
+  process.on("exit", () => {
+    for (const p of spawned) killGroup(p, "SIGTERM");
+  });
+}
 
 // Apps this process is using now, so a run inside a run (seeding before a recording) shares one.
 const active = new Map<string, RunningApp>();
 
 export interface AppControl {
+  /** Stops the app (for its own tools to work on its data); refused when this run didn't start it. */
   stop(): Promise<void>;
   start(): Promise<void>;
 }
 
-/** Runs `fn` with the project's app up (started if needed, stopped afterwards when Reel started it). */
+/** Runs `fn` with the project's app up (started if needed, stopped afterwards when this run started it). */
 export async function withApp<T>(project: Project, fn: (app: RunningApp, control: AppControl) => Promise<T>, log: (m: string) => void): Promise<T> {
   const serve = project.file.app.serve;
   if (!serve) throw new ReelError(1, `project ${project.key} has no app.serve`);
+  const notOurs = async () => {
+    throw new ReelError(1, `${project.key}'s app wasn't started by this run, so it isn't stopped here: stop it first (reel app stop ${project.key})`);
+  };
   const already = active.get(project.key);
-  if (already) return fn({ ...already, startedByUs: false }, { stop: async () => {}, start: async () => {} });
+  if (already) return fn({ ...already, startedByUs: false }, { stop: notOurs, start: async () => {} });
   return withAppLock(project.key, async () => {
     const base = project.file.app.base;
     const readyUrl = new URL(serve.ready, base).href;
     const data = appData(project.key);
     mkdirSync(data, { recursive: true, mode: 0o700 });
     let child: ChildProcess | null = null;
+    let exited: Promise<void> = Promise.resolve();
+    let reused = false;
 
     const start = async () => {
-      const status = await probe(readyUrl);
-      if (ok(status)) return;
-      if (status !== null) {
-        throw new ReelError(1, `port ${serve.port} answers ${status} on ${serve.ready}: it isn't ${project.key}'s app (stop what runs there, or change app.serve.port)`);
+      const found = await probe(readyUrl);
+      if (found === "busy") throw new ReelError(1, `port ${serve.port} doesn't answer ${serve.ready} in time: something is there, but it isn't ready`);
+      if (found !== "nothing") {
+        const ours = startedApp(project.key);
+        if (ready(found) && ours && ours.port === serve.port) {
+          reused = true;
+          return;
+        }
+        throw new ReelError(1, `port ${serve.port} answers ${found.status} on ${serve.ready}, but it isn't one Reel started for ${project.key} ` +
+          `(its data would not be ${data}): stop what runs there, or change app.serve.port`);
       }
       const [cmd, ...args] = serve.command.map((c) => fill(project, c));
       const cwd = serve.cwd ? resolve(project.dir, fill(project, serve.cwd)) : project.dir;
@@ -82,18 +144,35 @@ export async function withApp<T>(project: Project, fn: (app: RunningApp, control
       mkdirSync(appDir(project.key), { recursive: true });
       const out = openSync(serveLog(project.key), "a");
       log(`  starting ${project.key}'s app: ${[cmd, ...args].join(" ")}`);
-      child = spawn(isAbsolute(cmd) || cmd.includes("/") ? resolve(cwd, cmd) : cmd, args, { cwd, env, stdio: ["ignore", out, out], windowsHide: true });
+      const c = spawn(isAbsolute(cmd) || cmd.includes("/") ? resolve(cwd, cmd) : cmd, args, {
+        cwd, env, stdio: ["ignore", out, out], windowsHide: true, detached: process.platform !== "win32",
+      });
       closeSync(out);
-      let exited: number | null = null;
-      child.on("exit", (code) => (exited = code ?? -1));
-      child.on("error", () => (exited = -1));
+      child = c;
+      let gone = false;
+      exited = new Promise<void>((done) => {
+        c.once("exit", () => {
+          gone = true;
+          if (c.pid) spawned.delete(c.pid);
+          rmSync(pidFile(project.key), { force: true });
+          done();
+        });
+        c.once("error", () => {
+          gone = true;
+          done();
+        });
+      });
+      if (c.pid) {
+        stopOnExit(c.pid);
+        writeFileSync(pidFile(project.key), JSON.stringify({ pid: c.pid, port: serve.port, started: new Date().toISOString() }));
+      }
       const deadline = Date.now() + serve.timeout * 1000;
       while (Date.now() < deadline) {
-        if (exited !== null) {
+        if (gone) {
           child = null;
-          throw new ReelError(1, `${project.key}'s app didn't start (exit ${exited}):\n${tail(serveLog(project.key))}`);
+          throw new ReelError(1, `${project.key}'s app didn't start (it exited):\n${tail(serveLog(project.key))}`);
         }
-        if (ok(await probe(readyUrl))) {
+        if (ready(await probe(readyUrl))) {
           log(`  ${project.key}'s app is ready on ${base}`);
           return;
         }
@@ -105,23 +184,24 @@ export async function withApp<T>(project: Project, fn: (app: RunningApp, control
 
     const stop = async () => {
       const c = child as ChildProcess | null;
-      if (!c || c.exitCode !== null) return;
-      const gone = new Promise<void>((done) => c.once("exit", () => done()));
-      c.kill("SIGTERM");
-      const timer = setTimeout(() => c.kill("SIGKILL"), 10_000);
-      await gone;
-      clearTimeout(timer);
+      if (!c) return;
+      if (c.exitCode === null && c.signalCode === null && c.pid) {
+        killGroup(c.pid, "SIGTERM");
+        const timer = setTimeout(() => killGroup(c.pid!, "SIGKILL"), 10_000);
+        await exited;
+        clearTimeout(timer);
+      }
       child = null;
     };
 
     await start();
-    const app: RunningApp = { base, data, startedByUs: child !== null, pid: (child as ChildProcess | null)?.pid };
+    const app: RunningApp = { base, data, startedByUs: !reused, pid: (child as ChildProcess | null)?.pid };
     active.set(project.key, app);
     try {
-      return await fn(app, { stop, start });
+      return await fn(app, { stop: reused ? notOurs : stop, start: reused ? async () => {} : start });
     } finally {
       active.delete(project.key);
-      if (app.startedByUs) {
+      if (!reused) {
         await stop();
         log(`  stopped ${project.key}'s app`);
       }
@@ -129,17 +209,38 @@ export async function withApp<T>(project: Project, fn: (app: RunningApp, control
   }, log);
 }
 
+/** `reel app stop`: stops an app a Reel run started and left running. True when there was one. */
+export async function stopLeftApp(project: Project): Promise<boolean> {
+  const kept = startedApp(project.key);
+  if (!kept) {
+    rmSync(pidFile(project.key), { force: true });
+    return false;
+  }
+  killGroup(kept.pid, "SIGTERM");
+  for (let i = 0; i < 40 && alive(kept.pid); i++) await new Promise((d) => setTimeout(d, 250));
+  if (alive(kept.pid)) killGroup(kept.pid, "SIGKILL");
+  rmSync(pidFile(project.key), { force: true });
+  return true;
+}
+
 /**
  * Starts the app's data over: the data folder moves aside (the newest old one is kept), and the mission state bags,
- * the adapter's secrets and the saved login go, since what they name is gone.
+ * the adapter's secrets and the saved login go, since what they name is gone. Refused while the app runs.
  */
-export function resetApp(projectKey: string): void {
-  const dir = appDir(projectKey);
-  if (existsSync(appData(projectKey))) {
-    for (const old of existsSync(dir) ? readdirSync(dir).filter((f) => f.startsWith("data.old-")) : []) rmSync(join(dir, old), { recursive: true, force: true });
-    renameSync(appData(projectKey), join(dir, `data.old-${new Date().toISOString().replace(/[:.]/g, "-")}`));
-  }
-  rmSync(join(vaultDir(), "state", projectKey), { recursive: true, force: true });
-  secretsFor(projectKey).clear();
-  rmSync(authFile(projectKey), { force: true });
+export async function resetApp(project: Project): Promise<void> {
+  const serve = project.file.app.serve;
+  if (!serve) throw new ReelError(2, `project ${project.key} has no app.serve`);
+  const running = () => new ReelError(1, `${project.key}'s app is running on port ${serve.port}: stop it before its data starts over (reel app stop ${project.key})`);
+  if (active.has(project.key)) throw running();
+  await withAppLock(project.key, async () => {
+    if ((await probe(new URL(serve.ready, project.file.app.base).href)) !== "nothing") throw running();
+    const dir = appDir(project.key);
+    if (existsSync(appData(project.key))) {
+      for (const old of readdirSync(dir).filter((f) => f.startsWith("data.old-"))) rmSync(join(dir, old), { recursive: true, force: true });
+      renameSync(appData(project.key), join(dir, `data.old-${new Date().toISOString().replace(/[:.]/g, "-")}`));
+    }
+    rmSync(join(vaultDir(), "state", project.key), { recursive: true, force: true });
+    secretsFor(project.key).clear();
+    rmSync(authFile(project.key), { force: true });
+  }, () => {});
 }

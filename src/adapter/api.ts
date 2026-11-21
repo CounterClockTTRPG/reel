@@ -63,6 +63,8 @@ export interface StageLike {
   /** A marked wait: a stretch the edit cuts or speeds up. */
   wait<T>(title: string, fn: () => Promise<T>): Promise<T>;
   css(content: string): Promise<void>;
+  /** Glides the cursor to a point on the page (for things that aren't elements: a spot on a map). */
+  glide(x: number, y: number): Promise<void>;
   /** Glides to a select and picks an option, by its value or its label. */
   select(target: string, pick: { value?: string; label?: string }): Promise<void>;
   settled(target: string, opts?: { quiet?: number; timeout?: number }): Promise<void>;
@@ -85,6 +87,8 @@ export interface StepContext {
   secrets: SecretStore;
   /** project.yaml's adapter_options, checked by `Adapter.options`. */
   options: Record<string, unknown>;
+  /** Which page the step runs on: "host", or the seat's name. */
+  seatName: string;
   dry: boolean;
   scene: string;
   log(msg: string): void;

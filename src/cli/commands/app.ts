@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "commander";
-import { appData, resetApp, withApp } from "../../app/serve.js";
+import { appData, resetApp, stopLeftApp, withApp } from "../../app/serve.js";
 import { isSeeded, seedApp } from "../../app/seed.js";
 import { loadProject, loadStudio } from "../../model/load.js";
 import { ReelError } from "../../paths.js";
@@ -47,9 +47,15 @@ export function appCommands(program: Command, out: () => Output) {
     .command("reset <project>")
     .description("start the app's data over (kept aside once), with the missions' state and the adapter's secrets")
     .action(async (key: string) => {
-      await served(key);
-      resetApp(key);
+      await resetApp(await served(key));
       out().result({ project: key, reset: true }, `${key}'s app data starts over; the next recording seeds it again`);
+    });
+  app
+    .command("stop <project>")
+    .description("stop the app a Reel run started and left running (its pid file says which)")
+    .action(async (key: string) => {
+      const stopped = await stopLeftApp(await served(key));
+      out().result({ project: key, stopped }, stopped ? `stopped ${key}'s app` : `no app Reel started is running for ${key}`);
     });
   app
     .command("status <project>")
