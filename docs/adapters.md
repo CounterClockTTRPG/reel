@@ -37,8 +37,12 @@ export default {
       },
     },
   },
-  async init({ page, state }) {
-    // before each scene's first step, on the host's page
+  options: z.object({ greeting: z.string() }),   // the schema of project.yaml's adapter_options
+  async init({ page, state, seat }) {
+    // before each scene's first step, on every seat's page (seat is "host" or the seat's name)
+  },
+  async seed(ctx) {
+    // `reel app seed <project>`, and before recording into app data that was never seeded (see below)
   },
 };
 ```
@@ -55,6 +59,38 @@ export default {
 - `dry`: whether this is a dry run.
 - `scene`: the scene's id.
 - `log(message)`: a line for the run's log.
+- `secrets`: `get` and `set` the adapter's secrets, such as a seat's password. They are kept in
+  `~/.reel/secrets/<project>.yaml`, never in the studio.
+- `options`: project.yaml's `adapter_options`, checked against the adapter's `options` schema.
+
+## An app Reel runs, and seeding it
+
+A project can have Reel run its own instance of the app, with the data in the vault, so recording never touches real
+data:
+
+```yaml
+app:
+  auth: login
+  serve:
+    command: [uv, run, delve, serve, --port, "{port}"]
+    cwd: ~/claude/refactoring
+    port: 7820
+    env: { DELVE_DATA_DIR: "{data}" }   # {data} is ~/.reel/apps/<project>/data
+    ready: /api/health                  # GET until it answers 2xx
+    token_file: "{data}/token"          # optional: the Bearer token, for auth: token
+```
+
+`reel record` starts the app when nothing answers on the port, and stops it afterwards. `reel app serve|seed|reset|status
+<project>` manage it, and `reel record --fresh` starts its data over.
+
+The adapter's `seed(ctx)` fills new data. `ctx` gives it:
+- `data`, `base` and `api`;
+- `run(cmd, args)`: runs a command with the serve environment;
+- `stopApp()` and `startApp()`: stop the app while its own tools work on the data, then start it again;
+- `saveLogin(storageState)`: saves the login for `auth: login`;
+- `secrets`, `options` and `log`.
+
+A successful seed marks the data with `.reel-seeded`, and a recording into unseeded data seeds it first.
 
 A step that throws fails the run, naming the scene and the step. Reel saves a screenshot of the page at that point.
 

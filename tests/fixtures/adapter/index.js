@@ -8,6 +8,18 @@ export default {
   masks: [".adapter-private"],
   privateStrings: ["adapter-secret"],
   options: z.object({ greeting: z.string().optional() }).strict(),
+  // Seeding the fixture app: with the app stopped, write a file into its data; then a saved login.
+  async seed(ctx) {
+    await ctx.stopApp();
+    const { writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    writeFileSync(join(ctx.data, "seeded-by-fixture"), "yes");
+    await ctx.startApp();
+    const res = await ctx.api.get("/health");
+    ctx.log(`health ${res.status()}`);
+    ctx.secrets.set("owner", "pw");
+    ctx.saveLogin({ cookies: [], origins: [] });
+  },
   async init({ state, seat }) {
     state.set("inits", [...(state.get("inits") ?? []), seat]);
   },

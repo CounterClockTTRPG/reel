@@ -13,6 +13,7 @@ import { mixCommands } from "./commands/mix.js";
 import { packageCommands } from "./commands/package.js";
 import { makeCommands } from "./commands/make.js";
 import { serveCommands } from "./commands/serve.js";
+import { appCommands } from "./commands/app.js";
 import { output, type Output } from "./output.js";
 
 const program = new Command("reel")
@@ -32,6 +33,7 @@ mixCommands(program, out);
 packageCommands(program, out);
 makeCommands(program, out);
 serveCommands(program, out);
+appCommands(program, out);
 
 try {
   await program.parseAsync(process.argv);

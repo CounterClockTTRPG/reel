@@ -13,6 +13,7 @@ import { effectiveStyle } from "../model/style.js";
 import { ReelError, sceneDir, vaultDir } from "../paths.js";
 import { withMissionLock } from "../jobs/lock.js";
 import { resetApp, withApp } from "../app/serve.js";
+import { isSeeded, seedApp } from "../app/seed.js";
 import { probeDuration, run } from "../util/proc.js";
 import { createTake, readReview, takeNumbers, takeRef, type TakeRef, type TakeScene } from "../take/take.js";
 import { cachedRecording, newRecordingId, sceneKey, type RecordingInfo } from "./cache.js";
@@ -58,7 +59,13 @@ export async function recordMission(opts: RecordOptions): Promise<RecordResult> 
   }
   const withServed = (fn: () => Promise<RecordResult>) =>
     project.file.app.serve ? withApp(project, () => fn(), opts.log) : fn();
-  const go = () => withServed(() => record(opts, all));
+  const go = async () => {
+    if (project.file.app.serve && !isSeeded(project.key)) {
+      const adapter = await loadAdapter(project.file.adapter, project.dir);
+      if (adapter?.seed) await seedApp(project, opts.log);
+    }
+    return withServed(() => record(opts, all));
+  };
   if (opts.fresh) {
     if (!project.file.app.serve) throw new ReelError(2, `--fresh starts an app's data over: project ${project.key} has no app.serve`);
     resetApp(project.key);

@@ -101,6 +101,26 @@ export interface StepDef<A = unknown> {
   dry?(ctx: StepContext, args: A): Promise<unknown>;
 }
 
+/** What an adapter's `seed` gets: the app it fills, and ways to run the app's own tools on its data. */
+export interface SeedContext {
+  project: string;
+  base: string;
+  /** The app's data folder in the vault. */
+  data: string;
+  /** Requests to the app (with its token or saved login, when there is one). */
+  api: APIRequestContext;
+  options: Record<string, unknown>;
+  secrets: SecretStore;
+  log(msg: string): void;
+  /** Runs a command with the app's serve environment (its data folder and the like) and its cwd. */
+  run(cmd: string, args: string[], opts?: { env?: Record<string, string>; cwd?: string }): Promise<{ stdout: string; stderr: string }>;
+  /** Stops the app (to use its own tools on its data) and starts it again. */
+  stopApp(): Promise<void>;
+  startApp(): Promise<void>;
+  /** Saves a logged-in browser state, for `auth: login`. */
+  saveLogin(storageState: unknown): void;
+}
+
 export interface Adapter {
   name: string;
   version: string;
@@ -109,6 +129,8 @@ export interface Adapter {
   privateStrings?: string[];
   /** The schema of project.yaml's adapter_options. */
   options?: z.ZodType<Record<string, unknown>>;
+  /** Fills a new app data folder (`reel app seed`; before recording into unseeded data). */
+  seed?(ctx: SeedContext): Promise<void>;
   /** Before each scene's first step, on every seat's page (host included). */
   init?(ctx: { page: Page; state: StateBag; seat: string }): Promise<void>;
 }
