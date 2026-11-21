@@ -1,0 +1,18 @@
+# A demo project against the fixture app.
+name: Demo
+adapter: ../../../adapter/index.js   # relative to this project's folder
+app:
+  base: http://127.0.0.1:4790
+  auth: none
+  local_storage: { demo.tours: "off" }
+style:
+  voice: fake
+  languages: [en, nl]
+  music: { moods: [fantasy, calm], loudness: -33 }
+  overlay: classic
+  cards: { opening: classic, chapter: classic, credits: classic }
+  transitions: { chapter: fade-black, card: crossfade, cut: crossfade-short }
+  size: { width: 1280, height: 720 }
+  privacy:
+    masks: [".private"]
+    strings: ["secret@example.com"]

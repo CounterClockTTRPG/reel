@@ -1,0 +1,16 @@
+title: The basics
+scenes:
+  - id: intro
+    music: calm
+    steps:
+      - goto: /
+      - say: { label: Home, text: This is the home page., spot: ul.rows }
+  - id: search
+    steps:
+      - type: { target: "#q", text: kobold }
+      - demo.act: { as: answer }
+      - say: The answer is in.
+  - id: result
+    needs: [search]
+    steps:
+      - say: { text: Every answer is kept., spoken: "Every answer is kept, forever." }

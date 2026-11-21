@@ -1,0 +1,5 @@
+# The fixture studio for Reel's tests.
+music_root: ./music
+default_licence: CC BY 4.0
+default_attribution: "Test tones, licensed under Creative Commons Attribution 4.0"
+port: 7779

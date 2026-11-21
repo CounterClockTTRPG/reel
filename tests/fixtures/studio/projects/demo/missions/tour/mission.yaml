@@ -1,0 +1,5 @@
+title: "Demo: a tour"
+opening: { title: Demo, text: A tour of the demo app., spoken: "This is the demo app.", hold: 3 }
+chapters: [01-basics]
+cut_waits: true
+interstitials: false

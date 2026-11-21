@@ -1,0 +1,3 @@
+voices:
+  fake: { provider: fake, model: tone, voice: tone, language: en, price_per_1000: 0.1 }
+  wise-lady: { provider: replicate, model: minimax/speech-02-hd, voice: English_Wiselady, language: en, price_per_1000: 0.1 }

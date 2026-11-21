@@ -1,0 +1,4 @@
+tracks:
+  - { id: calm-a, file: calm-a.mp3, title: Calm A, artist: Tester, licence: CC BY 4.0, attribution: "Calm A by Tester", moods: [calm, fantasy] }
+  - { id: calm-b, file: calm-b.mp3, title: Calm B, artist: Tester, licence: CC BY 4.0, attribution: "Calm B by Tester", moods: [calm] }
+  - { id: epic-a, file: epic a.mp3, title: Epic A, artist: Tester, licence: CC BY 4.0, attribution: "Epic A by Tester", moods: [epic] }
