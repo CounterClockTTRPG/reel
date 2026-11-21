@@ -35,12 +35,20 @@ export async function writeYamlPreserving(
   file: string,
   mutate: (doc: Document) => void,
   expectMtimeMs?: number,
+  /** Throws when the changed document isn't valid; nothing is written then. */
+  validate?: (doc: YamlDoc) => void,
 ): Promise<number> {
   const current = await readYamlDoc(file);
   if (expectMtimeMs !== undefined && Math.abs(current.mtimeMs - expectMtimeMs) > 1) {
     throw new ReelError(1, `${file} changed on disk since you opened it`, { conflict: true, mtimeMs: current.mtimeMs });
   }
   mutate(current.doc);
+  if (validate) {
+    // Positions of the changed document, for an error's line.
+    const text = current.doc.toString({ lineWidth: 0 });
+    const lines = new LineCounter();
+    validate({ doc: parseDocument(text, { lineCounter: lines }), lines, mtimeMs: current.mtimeMs });
+  }
   await writeFile(file, current.doc.toString({ lineWidth: 0 }));
   return (await stat(file)).mtimeMs;
 }
