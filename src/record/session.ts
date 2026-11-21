@@ -8,6 +8,7 @@ import type { Adapter, TimelineEvent } from "../adapter/api.js";
 import type { Project } from "../model/load.js";
 import type { Mask, Style } from "../model/schema.js";
 import { ReelError, vaultDir } from "../paths.js";
+import { appToken } from "../app/serve.js";
 import { overlayScript } from "./overlay.js";
 import { Stage } from "./stage.js";
 
@@ -68,7 +69,7 @@ export async function openSession(opts: SessionOptions): Promise<Session> {
   let bearer: string | undefined;
   const appOrigin = new URL(app.base).origin;
   if (app.auth === "token") {
-    const token = tokenFor(opts.project.key);
+    const token = opts.project.file.app.serve?.token_file ? appToken(opts.project) : tokenFor(opts.project.key);
     if (!token) throw new ReelError(1, `project ${opts.project.key} records with a token: set REEL_TOKEN_${opts.project.key.toUpperCase().replaceAll("-", "_")} or ~/.reel/secrets/${opts.project.key}.yaml`);
     bearer = `Bearer ${token}`;
   } else if (app.auth === "login") {

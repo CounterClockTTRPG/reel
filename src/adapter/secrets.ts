@@ -9,6 +9,8 @@ export interface SecretStore {
   get(key: string): string | undefined;
   set(key: string, value: string): void;
   delete(key: string): void;
+  /** Forgets every secret of the adapter (the project's own token stays). */
+  clear(): void;
 }
 
 export const secretsFile = (projectKey: string) => join(vaultDir(), "secrets", `${projectKey}.yaml`);
@@ -30,6 +32,12 @@ export function secretsFor(projectKey: string): SecretStore {
       const doc = read();
       if (!doc.contents) doc.contents = doc.createNode({}) as never;
       doc.setIn(["adapter", key], value);
+      write(doc);
+    },
+    clear() {
+      if (!existsSync(file)) return;
+      const doc = read();
+      doc.deleteIn(["adapter"]);
       write(doc);
     },
     delete(key) {

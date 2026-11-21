@@ -22,6 +22,7 @@ export interface JobArgs {
   scenes?: string[];
   flagged?: boolean;
   all?: boolean;
+  fresh?: boolean;
   yes?: boolean;
   budget?: number;
   force?: boolean;
@@ -88,10 +89,10 @@ export class JobRunner {
     const id = `${Date.now().toString(36)}-${++this.counter}`;
     const job: Job = { id, kind, target, args, status: "queued", created: new Date().toISOString(), log: [] };
     this.jobs.set(id, job);
-    const mission = `${p}/${m}`;
-    const before = this.queues.get(mission) ?? Promise.resolve();
+    // A project's jobs run one after another: its missions may share one app (app.serve).
+    const before = this.queues.get(p) ?? Promise.resolve();
     const done = before.then(() => this.run(job));
-    this.queues.set(mission, done);
+    this.queues.set(p, done);
     return job;
   }
 
@@ -130,7 +131,7 @@ export class JobRunner {
     const mission = await loadMission(project, m);
     const a = job.args;
     if (job.kind === "record" || job.kind === "dry") {
-      const r = await recordMission({ project, mission, scenes: a.scenes, flagged: a.flagged, all: a.all, dry: job.kind === "dry", log });
+      const r = await recordMission({ project, mission, scenes: a.scenes, flagged: a.flagged, all: a.fresh || a.all, fresh: a.fresh, dry: job.kind === "dry", log });
       return { ...r, take: r.take?.n };
     }
     const ref = parseTakeRef(job.target);

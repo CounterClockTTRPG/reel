@@ -12,6 +12,7 @@ import type { Scene, Step } from "../model/schema.js";
 import { effectiveStyle } from "../model/style.js";
 import { ReelError, sceneDir, vaultDir } from "../paths.js";
 import { withMissionLock } from "../jobs/lock.js";
+import { resetApp, withApp } from "../app/serve.js";
 import { probeDuration, run } from "../util/proc.js";
 import { createTake, readReview, takeNumbers, takeRef, type TakeRef, type TakeScene } from "../take/take.js";
 import { cachedRecording, newRecordingId, sceneKey, type RecordingInfo } from "./cache.js";
@@ -27,6 +28,8 @@ export interface RecordOptions {
   all?: boolean;
   dry?: boolean;
   headed?: boolean;
+  /** Starts the project's app data over first (app.serve): see resetApp. */
+  fresh?: boolean;
   actionTimeout?: number;
   log: (msg: string) => void;
 }
@@ -53,7 +56,14 @@ export async function recordMission(opts: RecordOptions): Promise<RecordResult> 
   for (const id of opts.scenes ?? []) {
     if (!all.some((s) => s.scene.id === id)) throw new ReelError(2, `no scene "${id}" in ${project.key}/${mission.key}`);
   }
-  const go = () => record(opts, all);
+  const withServed = (fn: () => Promise<RecordResult>) =>
+    project.file.app.serve ? withApp(project, () => fn(), opts.log) : fn();
+  const go = () => withServed(() => record(opts, all));
+  if (opts.fresh) {
+    if (!project.file.app.serve) throw new ReelError(2, `--fresh starts an app's data over: project ${project.key} has no app.serve`);
+    resetApp(project.key);
+    opts.log(`  ${project.key}'s app data starts over`);
+  }
   return opts.dry ? go() : withMissionLock(project.key, mission.key, go, opts.log);
 }
 

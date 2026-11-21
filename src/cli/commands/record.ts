@@ -17,10 +17,11 @@ export function recordCommands(program: Command, out: () => Output) {
     .option("--all", "retake every scene")
     .option("--dry", "click through every scene without anything that costs money or changes state; makes no take")
     .option("--headed", "show the browser while it records")
-    .action(async (target: string, o: { scene?: string[]; flagged?: boolean; all?: boolean; dry?: boolean; headed?: boolean }) => {
+    .option("--fresh", "start the project's app data over first (app.serve); every scene is recorded again")
+    .action(async (target: string, o: { scene?: string[]; flagged?: boolean; all?: boolean; dry?: boolean; headed?: boolean; fresh?: boolean }) => {
       const { project, mission } = await loadTarget(target);
       const o2 = out();
-      const result = await recordMission({ project, mission, scenes: o.scene, flagged: o.flagged, all: o.all, dry: o.dry, headed: o.headed, log: o2.log });
+      const result = await recordMission({ project, mission, scenes: o.scene, flagged: o.flagged, all: o.fresh || o.all, dry: o.dry, headed: o.headed, fresh: o.fresh, log: o2.log });
       o2.result(
         { ...result, take: result.take && { project: result.take.project, mission: result.take.mission, n: result.take.n } },
         o.dry

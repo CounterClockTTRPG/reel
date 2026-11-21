@@ -60,11 +60,28 @@ export const ProjectFile = z
     adapter: z.string().optional(),
     /** Settings for the adapter (its seeding, say), checked by the adapter's own schema. */
     adapter_options: z.record(z.string(), z.unknown()).optional(),
-    app: z.object({
-      base: z.string().url(),
-      auth: z.enum(["token", "login", "none"]).default("none"),
-      local_storage: z.record(z.string(), z.string()).default({}),
-    }),
+    app: z
+      .object({
+        base: z.string().url().optional(),
+        auth: z.enum(["token", "login", "none"]).default("none"),
+        local_storage: z.record(z.string(), z.string()).default({}),
+        /** Reel starts the app itself, with its data in the vault (see src/app/serve.ts). */
+        serve: z
+          .object({
+            command: z.array(z.string()).min(1),
+            cwd: z.string().optional(),
+            port: z.number().int().min(1024).max(65535),
+            env: z.record(z.string(), z.string()).default({}),
+            ready: z.string().default("/"),
+            token_file: z.string().optional(),
+            timeout: z.number().positive().default(60),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .refine((a) => a.base || a.serve, "app needs a base address, or a serve block Reel starts it with")
+      .transform((a) => ({ ...a, base: a.base ?? `http://127.0.0.1:${a.serve!.port}` })),
     style: PartialStyle.default({}),
   })
   .strict();
