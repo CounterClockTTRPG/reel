@@ -25,7 +25,7 @@ describe("loading a studio", () => {
 
   it("keeps both the caption and the spoken line of a say", async () => {
     const m = await tour();
-    expect(m.chapters[0].file.scenes[2].steps[0]).toEqual({
+    expect(m.chapters[0].file.scenes[2].steps[1]).toEqual({
       say: { text: "Every answer is kept.", spoken: "Every answer is kept, forever." },
     });
   });
@@ -39,15 +39,21 @@ describe("loading a studio", () => {
     expect(err.message).toMatch(/01-basics\.yaml:6 \(scene "a"\).*unknown step "clik"/);
   });
 
+  it("fails a scene that doesn't start by opening a page", async () => {
+    const dir = studioCopy();
+    writeFileSync(join(dir, CHAPTER), "title: X\nscenes:\n  - id: a\n    steps:\n      - say: Hello\n");
+    await expect(tour(dir)).rejects.toThrow(/scene "a".*starts on a fresh page/);
+  });
+
   it("accepts an adapter step without knowing it", async () => {
     const m = await tour();
-    expect(m.chapters[0].file.scenes[1].steps[0]).toEqual({ "demo.act": { text: "kobold" }, as: "answer" });
+    expect(m.chapters[0].file.scenes[1].steps[1]).toEqual({ "demo.act": { text: "kobold" }, as: "answer" });
   });
 
   it("parses parallel steps", async () => {
     const dir = studioCopy();
     writeFileSync(join(dir, CHAPTER), "title: X\nscenes:\n  - id: a\n    steps:\n      - parallel:\n" +
-      "          - [{ type: { target: '#q', text: a }, seat: ana }]\n          - [{ type: { target: '#q', text: b }, seat: ben }]\n");
+      "          - [{ goto: /, seat: ana }]\n          - [{ type: { target: '#q', text: b }, seat: ben }]\n");
     const m = await tour(dir);
     expect((m.chapters[0].file.scenes[0].steps[0] as { parallel: unknown[] }).parallel).toHaveLength(2);
   });

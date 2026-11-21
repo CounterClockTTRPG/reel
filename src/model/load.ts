@@ -185,6 +185,11 @@ export async function loadMission(project: Project, key: string): Promise<Missio
       }
       seen.set(scene.id, where);
       checkList(scene.steps, ["scenes", si, "steps"], scene.id);
+      const first = stepAction(scene.steps[0]).name;
+      if (first !== "goto" && first !== "parallel" && !first.includes(".")) {
+        throw new FilmError(where, lineAt(yaml, ["scenes", si, "steps", 0]),
+          `each scene starts on a fresh page: begin it with goto (or an adapter step that opens one), not ${first}`, scene.id);
+      }
     });
     chapters.push({ key: ck, path, file: value, mtimeMs: yaml.mtimeMs });
   }

@@ -7,10 +7,12 @@ scenes:
       - say: { label: Home, text: This is the home page., spot: ul.rows }
   - id: search
     steps:
+      - goto: /
       - demo.act: { text: kobold }
         as: answer
       - say: The answer is in.
   - id: result
     needs: [search]
     steps:
+      - goto: /
       - say: { text: Every answer is kept., spoken: "Every answer is kept, forever." }
