@@ -15,7 +15,8 @@ function canonical(value: unknown): unknown {
 }
 
 export function sceneKey(scene: Scene, adapterVersion: string, base: string, size: { width: number; height: number }): string {
-  const text = JSON.stringify(canonical({ scene, adapterVersion, base, size }));
+  // What the recording shows depends on the steps only; music, speed and title are the edit's business.
+  const text = JSON.stringify(canonical({ id: scene.id, steps: scene.steps, adapterVersion, base, size }));
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 

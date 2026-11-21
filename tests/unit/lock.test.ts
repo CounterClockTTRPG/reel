@@ -17,9 +17,23 @@ describe("mission lock", () => {
     process.env.REEL_DATA = tmp();
     const dead = spawnSync(process.execPath, ["-e", ""]).pid;
     mkdirSync(join(process.env.REEL_DATA, "locks"), { recursive: true });
-    writeFileSync(lockFile("demo", "tour"), JSON.stringify({ pid: dead, host: "x", started: "y" }));
+    writeFileSync(lockFile("demo", "tour"), JSON.stringify({ pid: dead, started: "y" }));
     const warnings: string[] = [];
     expect(await withMissionLock("demo", "tour", async () => 7, (m) => warnings.push(m))).toBe(7);
     expect(warnings.join()).toMatch(/took over/);
+  });
+});
+
+describe("a broken lock file", () => {
+  it("is taken over, and a held lock names its file", async () => {
+    process.env.REEL_DATA = tmp();
+    mkdirSync(join(process.env.REEL_DATA, "locks"), { recursive: true });
+    writeFileSync(lockFile("demo", "tour"), "");
+    const warnings: string[] = [];
+    expect(await withMissionLock("demo", "tour", async () => 1, (m) => warnings.push(m))).toBe(1);
+    expect(warnings.join()).toMatch(/took over/);
+    await withMissionLock("demo", "tour", async () => {
+      await expect(withMissionLock("demo", "tour", async () => {})).rejects.toThrow(/demo--tour\.lock/);
+    });
   });
 });

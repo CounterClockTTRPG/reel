@@ -97,3 +97,13 @@ describe("the voice gate", () => {
     expect(() => voiceGate(r.ref, r.mission, "1.0.0", { force: true })).toThrow(/privacy/);
   }, 120_000);
 });
+
+describe("a TTS failure", () => {
+  it("names the line even when the provider's error doesn't", async () => {
+    const r = await ready(["A line the network drops."]);
+    const broken: TtsProvider = { id: "test", async speak() { throw new TypeError("fetch failed"); } };
+    const err = await voiceTake(r.ref, r.project, r.mission, { yes: true, provider: broken }).catch((e) => e);
+    expect(err.message).toMatch(/fetch failed/);
+    expect(err.message).toMatch(/"(This is the demo\.|A line the network drops\.)"/);
+  }, 120_000);
+});

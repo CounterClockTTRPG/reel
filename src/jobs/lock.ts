@@ -28,12 +28,20 @@ export async function withMissionLock<T>(
   try {
     writeFileSync(file, mine, { flag: "wx" });
   } catch {
-    const holder = JSON.parse(readFileSync(file, "utf8")) as { pid: number; started: string };
-    if (holder.pid !== process.pid && alive(holder.pid)) {
-      throw new ReelError(1, `mission ${project}/${mission} is being recorded by pid ${holder.pid} (since ${holder.started})`);
+    let holder: { pid: number; host?: string; started: string } | null = null;
+    try {
+      holder = JSON.parse(readFileSync(file, "utf8"));
+    } catch {}
+    const held = (why: string) =>
+      new ReelError(1, `mission ${project}/${mission} is being recorded by pid ${holder!.pid} (${why}); if that's wrong, delete ${file}`);
+    if (holder && typeof holder.pid === "number") {
+      if (holder.pid === process.pid) throw held("this process");
+      if (holder.host && holder.host !== hostname()) throw held(`on ${holder.host}, since ${holder.started}`);
+      if (alive(holder.pid)) throw held(`since ${holder.started}`);
+      warn(`took over the lock of ${project}/${mission} from pid ${holder.pid}, which is gone`);
+    } else {
+      warn(`took over the lock of ${project}/${mission}: its lock file couldn't be read`);
     }
-    if (holder.pid === process.pid) throw new ReelError(1, `mission ${project}/${mission} is being recorded by pid ${holder.pid} (this process)`);
-    warn(`took over the lock of ${project}/${mission} from pid ${holder.pid}, which is gone`);
     writeFileSync(file, mine);
   }
   try {

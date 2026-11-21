@@ -14,3 +14,10 @@ describe("proc", () => {
     await expect(run("ffmpeg", ["-i", "missing file.mp3"])).rejects.toThrow(/missing file\.mp3/);
   });
 });
+
+describe("naming the file", () => {
+  it("names the input file, not a number before it", async () => {
+    const err = await run("ffmpeg", ["-ss", "1.000", "-t", "4.500", "-i", "no such file.mp4", "out.mp4"]).catch((e) => e);
+    expect(err.message).toMatch(/on no such file\.mp4/);
+  });
+});

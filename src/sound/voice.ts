@@ -127,13 +127,13 @@ export async function voiceTake(ref: TakeRef, project: Project, mission: Mission
         }
         files.set(text, file);
       } catch (e) {
-        failure ??= e;
+        failure ??= new ReelError(1, `TTS failed on "${text}": ${(e as Error).message}`);
       }
     }
   }));
   if (failure) {
-    const message = (failure as Error).message;
-    throw new ReelError(1, message.includes("\"") ? message : `TTS failed: ${message}`, { spent });
+    (failure as ReelError).details = { spent };
+    throw failure;
   }
 
   const measured = await Promise.all(lines.map(async (l) => ({ ...l, file: files.get(l.text)!, length: await probeDuration(files.get(l.text)!) })));

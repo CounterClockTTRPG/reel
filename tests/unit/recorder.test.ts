@@ -43,6 +43,13 @@ describe("recording a mission", () => {
     expect(result.take?.n).toBe(2);
   }, 120_000);
 
+  it("keeps a scene's key when only its music or speed changes", async () => {
+    const { mission } = await tour();
+    const scene = mission.chapters[0].file.scenes[0];
+    const size = { width: 1, height: 1 };
+    expect(sceneKey({ ...scene, music: "epic", speed: 3, title: "New" }, "1.0.0", "http://x", size)).toBe(sceneKey(scene, "1.0.0", "http://x", size));
+  });
+
   it("records only the scene whose words changed", async () => {
     const { mission } = await tour();
     const before = sceneKey(mission.chapters[0].file.scenes[2], "1.0.0", "http://x", { width: 1, height: 1 });

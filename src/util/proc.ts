@@ -23,7 +23,9 @@ export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise
       const stdout = Buffer.concat(out).toString();
       const stderr = Buffer.concat(err).toString();
       if (code === 0) return resolve({ stdout, stderr });
-      const file = args.find((a) => /[./\\]/.test(a) && !a.startsWith("-"));
+      const input = args.indexOf("-i");
+      const fileLike = (a: string) => /[./\\]/.test(a) && !a.startsWith("-") && !/^-?[\d.]+$/.test(a);
+      const file = input >= 0 && args[input + 1] ? args[input + 1] : (args.find(fileLike) ?? undefined);
       const tail = stderr.trim().split("\n").slice(-3).join("\n");
       reject(new ReelError(1, `${cmd} failed (exit ${code})${file ? ` on ${file}` : ""}: ${tail}`, { stderr }));
     });
