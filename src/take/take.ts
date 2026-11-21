@@ -3,7 +3,9 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import type { Mission } from "../model/load.js";
+import { missionScenes, type Mission } from "../model/load.js";
+import { effectiveStyle } from "../model/style.js";
+import { sceneKey } from "../record/cache.js";
 import { ReelError, takeDir, vaultDir } from "../paths.js";
 
 export interface TakeScene {
@@ -87,15 +89,64 @@ export function missionFileHashes(mission: Mission): Record<string, string> {
   );
 }
 
-/** A new take of `mission` from these scene recordings, numbered after the last one. */
-export function createTake(mission: Mission, scenes: TakeScene[], by = "reel record"): TakeRef {
+/**
+ * A new take of `mission` from these scene recordings, numbered after the last one. The review of a scene whose
+ * recording is the same as in `prev` is carried over; the review of a retaken or vanished scene is not.
+ */
+export function createTake(mission: Mission, scenes: TakeScene[], prev?: TakeRef | null, by = "reel record"): TakeRef {
   const project = mission.project.key;
   const n = (takeNumbers(project, mission.key).at(-1) ?? 0) + 1;
   const ref = takeRef(project, mission.key, n);
   mkdirSync(ref.dir, { recursive: true });
   writeTake(ref, { n, project, mission: mission.key, made: new Date().toISOString(), by, scenes, files: missionFileHashes(mission) });
-  writeReview(ref, { status: "draft", scenes: {} });
+  const carried: ReviewJson["scenes"] = {};
+  if (prev) {
+    const before = new Map(readTake(prev).scenes.map((sc) => [sc.id, sc.recording]));
+    for (const [id, review] of Object.entries(readReview(prev).scenes)) {
+      const now = scenes.find((sc) => sc.id === id);
+      if (now && before.get(id) === now.recording) carried[id] = review;
+    }
+  }
+  writeReview(ref, { status: "draft", scenes: carried });
   return ref;
+}
+
+export function setSceneReview(ref: TakeRef, scene: string, state: SceneReview["state"] | null, note: string | undefined, by: SceneReview["by"]): ReviewJson {
+  const take = readTake(ref);
+  if (!take.scenes.some((sc) => sc.id === scene)) throw new ReelError(2, `take ${ref.project}/${ref.mission}/${ref.n} has no scene "${scene}"`);
+  const review = readReview(ref);
+  if (state === null) delete review.scenes[scene];
+  else review.scenes[scene] = { state, ...(note ? { note } : {}), at: new Date().toISOString(), by };
+  writeReview(ref, review);
+  return review;
+}
+
+export function setTakeStatus(ref: TakeRef, status: ReviewJson["status"]): ReviewJson {
+  readTake(ref);
+  const review = readReview(ref);
+  review.status = status;
+  writeReview(ref, review);
+  return review;
+}
+
+/**
+ * The scenes of a take that no longer match the mission: their words or steps changed since (their key differs), or
+ * a scene they `need` was recorded after them. Scenes the take lacks count as stale too.
+ */
+export function staleScenes(mission: Mission, ref: TakeRef, adapterVersion: string): string[] {
+  const take = readTake(ref);
+  const { style } = effectiveStyle(mission.project, mission);
+  const byId = new Map(take.scenes.map((sc) => [sc.id, sc]));
+  const stale: string[] = [];
+  for (const { scene } of missionScenes(mission)) {
+    const used = byId.get(scene.id);
+    if (!used || used.key !== sceneKey(scene, adapterVersion, mission.project.file.app.base, style.size)) {
+      stale.push(scene.id);
+      continue;
+    }
+    if (scene.needs.some((need) => (byId.get(need)?.recording ?? "") > used.recording)) stale.push(scene.id);
+  }
+  return stale;
 }
 
 export interface TakeSummary {

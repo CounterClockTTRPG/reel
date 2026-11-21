@@ -137,7 +137,7 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
   if (opts.dry) return result;
   const missing = all.filter(({ scene }) => !used.some((u) => u.id === scene.id));
   if (missing.length) throw new ReelError(1, `no recording of ${missing.map((m) => m.scene.id).join(", ")}`);
-  result.take = createTake(mission, used);
+  result.take = createTake(mission, used, prevRef);
   log(`Take ${project.key}/${mission.key}/${result.take.n}: recorded ${result.recorded.join(", ") || "nothing"}, reused ${result.reused.join(", ") || "nothing"}`);
   return result;
 }

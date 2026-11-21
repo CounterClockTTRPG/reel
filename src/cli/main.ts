@@ -5,6 +5,7 @@ import { Command, CommanderError } from "commander";
 import { ReelError } from "../paths.js";
 import { musicCommands } from "./commands/music.js";
 import { recordCommands } from "./commands/record.js";
+import { takeCommands } from "./commands/takes.js";
 import { output, type Output } from "./output.js";
 
 const program = new Command("reel")
@@ -16,6 +17,7 @@ const out = (): Output => output(Boolean(program.opts().json));
 
 musicCommands(program, out);
 recordCommands(program, out);
+takeCommands(program, out);
 
 try {
   await program.parseAsync(process.argv);
