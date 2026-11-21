@@ -14,7 +14,7 @@ export function ProjectPage({ onChange }: { onChange: () => void }) {
   const [problem, setProblem] = useState("");
   if (project.error) return <div className="notice">{project.error}</div>;
   if (!project.data) return null;
-  mtime.current ??= project.data.mtimeMs;
+  mtime.current = project.data.mtimeMs;
   const { data } = project;
   const missions = studio.data?.projects.find((x) => x.key === p)?.missions ?? [];
 

@@ -25,6 +25,12 @@ export interface PrivacyReport {
   hits: PrivacyHit[];
 }
 
+/** A scene's once-a-second frames among the frame files (another scene's id may start with this one's). */
+export function framesOf(files: string[], scene: string): string[] {
+  const own = new RegExp(`^${scene.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-s\\d+\\.png$`);
+  return files.filter((f) => own.test(f)).sort();
+}
+
 const squash = (s: string) => s.toLowerCase().replace(/\s+/g, "");
 
 async function frameAt(video: string, t: number, out: string) {
@@ -58,7 +64,7 @@ export async function checkPrivacy(ref: TakeRef, project: Project, mission: Miss
   for (const scene of scenes) {
     // One a second, in one pass.
     await run("ffmpeg", ["-y", "-loglevel", "error", "-i", scene.video, "-vf", "fps=1", join(framesDir, `${scene.id}-s%04d.png`)]);
-    for (const f of readdirSync(framesDir).filter((f) => f.startsWith(`${scene.id}-s`)).sort()) {
+    for (const f of framesOf(readdirSync(framesDir), scene.id)) {
       frames.push({ scene: scene.id, t: Number(f.match(/s(\d+)\.png$/)![1]) - 1, file: join(framesDir, f) });
     }
     // One per caption, a second after it comes up (when it has faded in).

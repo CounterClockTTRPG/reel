@@ -21,3 +21,10 @@ describe("privacy check", () => {
     expect(existsSync(join(ref.dir, "checks", "privacy.json"))).toBe(true);
   }, 300_000);
 });
+
+describe("frames by scene", () => {
+  it("doesn't take another scene's frames for this scene's", async () => {
+    const { framesOf } = await import("../../src/check/privacy.js");
+    expect(framesOf(["a-s0001.png", "a-setup-s0001.png", "a-c0.png", "a-s0002.png"], "a")).toEqual(["a-s0001.png", "a-s0002.png"]);
+  });
+});

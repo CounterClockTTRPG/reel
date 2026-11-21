@@ -23,12 +23,21 @@ export function ChapterEditor({ name, text, mtimeMs, onSave }: {
   onSave: (yaml: string, mtimeMs: number) => Promise<number>;
 }) {
   const [value, setValue] = useState(text);
-  const [mtime, setMtime] = useState(mtimeMs);
+  // The text and mtime the editor last took from disk: what the owner's edits are based on.
+  const [base, setBase] = useState({ text, mtimeMs });
+  const [disk, setDisk] = useState<{ text: string; mtimeMs: number } | null>(null);
   const [problem, setProblem] = useState("");
   const [saved, setSaved] = useState(false);
+  const mtime = base.mtimeMs;
   useEffect(() => {
-    setValue(text);
-    setMtime(mtimeMs);
+    if (text === base.text && mtimeMs === base.mtimeMs) return;
+    // A new version on disk: take it when nothing was edited; otherwise keep the edits and offer both.
+    if (value === base.text) {
+      setValue(text);
+      setBase({ text, mtimeMs });
+      setDisk(null);
+    } else setDisk({ text, mtimeMs });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, mtimeMs]);
   const scenes = (() => {
     try {
@@ -37,9 +46,12 @@ export function ChapterEditor({ name, text, mtimeMs, onSave }: {
       return [];
     }
   })();
-  const save = async (yaml = value) => {
+  const save = async (yaml = value, against = mtime) => {
     try {
-      setMtime(await onSave(yaml, mtime));
+      const m = await onSave(yaml, against);
+      setBase({ text: yaml, mtimeMs: m });
+      setValue(yaml);
+      setDisk(null);
       setProblem("");
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
@@ -56,10 +68,17 @@ export function ChapterEditor({ name, text, mtimeMs, onSave }: {
           <code>chapters/{name}.yaml</code>
           <span className="row">
             {saved && <span className="status ok">Saved</span>}
-            <button className="primary" onClick={() => save()} disabled={value === text && !problem}>Save chapter</button>
+            <button className="primary" onClick={() => save()} disabled={value === base.text && !problem}>Save chapter</button>
           </span>
         </div>
-        {problem && <div className="notice">{problem}{line ? ` (line ${line})` : ""}</div>}
+        {problem && !disk && <div className="notice">{problem}{line ? ` (line ${line})` : ""}</div>}
+        {disk && (
+          <div className="notice row">
+            Changed on disk since you opened it; your edits are kept here.
+            <button onClick={() => { setValue(disk.text); setBase(disk); setDisk(null); setProblem(""); }}>Load the version on disk</button>
+            <button className="danger" onClick={() => save(value, disk.mtimeMs)}>Save mine over it</button>
+          </div>
+        )}
         <CodeMirror value={value} extensions={[yamlMode()]} onChange={setValue} basicSetup={{ foldGutter: false }} aria-label={`Chapter ${name}`} />
       </div>
       <div>

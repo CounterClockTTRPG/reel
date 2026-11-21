@@ -89,8 +89,11 @@ function cardLength(card: CardSpec, fallback?: number): number {
   return card.hold ?? fallback ?? Math.max(CARD, readingTime(`${card.title} ${card.text ?? ""}`));
 }
 
-/** The stretches of one scene that stay: [from, length, speed]. */
-function sceneClips(scene: CutScene, cutWaits: boolean): { from: number; to: number; speed: number }[] {
+/**
+ * The stretches of one scene that stay: [from, to, speed]. A stretch too short to survive the crossfades on either side
+ * of it (shorter than `minLength` in the film) joins the stretch before it.
+ */
+function sceneClips(scene: CutScene, cutWaits: boolean, minLength: number): { from: number; to: number; speed: number }[] {
   const waits = scene.events
     .filter((e) => e.kind === "wait" && e.end !== undefined)
     .sort((a, b) => a.t - b.t);
@@ -110,7 +113,19 @@ function sceneClips(scene: CutScene, cutWaits: boolean): { from: number; to: num
     }
   }
   if (scene.duration > start) clips.push({ from: start, to: scene.duration, speed: 1 });
-  return clips;
+  const merged: typeof clips = [];
+  for (const clip of clips) {
+    const short = (clip.to - clip.from) / clip.speed < minLength;
+    const before = merged.at(-1);
+    if (short && before && before.to === clip.from) before.to = clip.to;
+    else merged.push({ ...clip });
+  }
+  // A short first stretch joins the one after it.
+  if (merged.length > 1 && (merged[0].to - merged[0].from) / merged[0].speed < minLength && merged[1].from === merged[0].to) {
+    merged[1].from = merged[0].from;
+    merged.shift();
+  }
+  return merged;
 }
 
 export function planCut(input: CutInput): CutPlan {
@@ -127,7 +142,7 @@ export function planCut(input: CutInput): CutPlan {
       push({ kind: "card", card, chapter: chapter.key, from: 0, length: CARD }, into);
     }
     chapter.scenes.forEach((scene, si) => {
-      sceneClips(scene, input.cutWaits).forEach((clip, k) => {
+      sceneClips(scene, input.cutWaits, 2 * T.cut.length).forEach((clip, k) => {
         const first = si === 0 && k === 0;
         const transition = first ? (input.interstitials ? T.card : into) : T.cut;
         push(

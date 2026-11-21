@@ -62,7 +62,7 @@ export function MissionPage() {
       </>
     );
   }
-  mtime.current ??= data.mtimeMs;
+  mtime.current = data.mtimeMs;
   const scenes = data.chapters!.flatMap((c) => c.scenes.map((s) => s.id));
 
   return (
@@ -84,7 +84,9 @@ export function MissionPage() {
       {making && <MakeDialog estimate={data.estimate} onCancel={() => setMaking(false)}
         onConfirm={(allowMissing) => {
           setMaking(false);
-          jobs.start("make", target, { yes: true, allowMissing });
+          // At most what the dialog said (rounded up a little), so script changes since can't spend more unseen.
+          const budget = Math.ceil((data.estimate?.usd ?? 0) * 10000) / 10000 + 0.0001;
+          jobs.start("make", target, { budget, allowMissing });
         }} />}
 
       <div className="tabs" role="tablist">

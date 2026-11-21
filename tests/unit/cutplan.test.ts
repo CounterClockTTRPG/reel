@@ -63,3 +63,13 @@ describe("the cut plan", () => {
     expect(plan.total).toBeCloseTo(plan.segments.reduce((n, s) => n + s.length, 0) - overlaps);
   });
 });
+
+describe("short stretches", () => {
+  it("leaves no clip shorter than twice its crossfade between back-to-back waits", () => {
+    const plan = planCut(input({ chapters: [{ key: "c1", title: "One", scenes: [{ id: "a", video: "a.mp4", duration: 41, speed: 3,
+      events: [wait("a", 5, 20), wait("a", 20.1, 35), wait("a", 35, 40.9)] }] }] }));
+    for (const s of plan.segments.filter((x) => x.kind === "scene")) expect(s.length).toBeGreaterThanOrEqual(1);
+    const shown = plan.segments.filter((x) => x.kind === "scene").reduce((n, s) => n + s.length * (s.speed ?? 1), 0);
+    expect(shown).toBeCloseTo(41, 0);
+  });
+});
