@@ -10,6 +10,7 @@ export default {
   options: z.object({ greeting: z.string().optional() }).strict(),
   // Seeding the fixture app: with the app stopped, write a file into its data; then a saved login.
   async seed(ctx) {
+    if (ctx.options.greeting === "fail") throw new Error("the fixture refuses to seed");
     await ctx.stopApp();
     const { writeFileSync } = await import("node:fs");
     const { join } = await import("node:path");

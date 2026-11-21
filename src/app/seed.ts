@@ -49,6 +49,9 @@ export async function seedApp(project: Project, log: (m: string) => void): Promi
     };
     try {
       await adapter.seed!(ctx);
+    } catch (e) {
+      if (e instanceof ReelError) throw e;
+      throw new ReelError(1, `seeding ${project.key}: ${(e as Error).message}`);
     } finally {
       await api.dispose();
     }
