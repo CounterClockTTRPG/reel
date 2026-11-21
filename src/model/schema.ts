@@ -90,10 +90,11 @@ export type ProjectFile = z.infer<typeof ProjectFile>;
 // ---- steps
 
 /** The keys any step may carry besides its action. */
-export const STEP_COMMON_KEYS = ["optional", "if", "seat", "as"] as const;
+export const STEP_COMMON_KEYS = ["optional", "if", "unless", "seat", "as"] as const;
 const common = {
   optional: z.boolean().optional(),
   if: selector.optional(),
+  unless: selector.optional(),
   seat: z.string().optional(),
   as: z.string().optional(),
 };
@@ -141,7 +142,7 @@ export type CoreStepName = keyof typeof CORE_STEP_ARGS | "parallel";
  */
 export type Step =
   | string
-  | ({ [action: string]: unknown } & { optional?: boolean; if?: string; seat?: string; as?: string });
+  | ({ [action: string]: unknown } & { optional?: boolean; if?: string; unless?: string; seat?: string; as?: string });
 
 export const StepShape: z.ZodType<Step> = z.union([
   z.string(),

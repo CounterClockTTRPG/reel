@@ -126,7 +126,9 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
           }
           if (opts.dry) {
             const missing = p.scene.needs.flatMap((need) =>
-              keysKept(all.find((s) => s.scene.id === need)!.scene.steps).filter((k) => !state.has(k)),
+              result.skippedDry.includes(need)
+                ? [`${need}'s state`]
+                : keysKept(all.find((s) => s.scene.id === need)!.scene.steps).filter((k) => !state.has(k)),
             );
             if (missing.length) {
               log(`  scene ${p.scene.id}: not reachable dry (no ${missing.join(", ")} from a real run yet), skipped`);

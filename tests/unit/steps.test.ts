@@ -152,3 +152,11 @@ describe("state in steps", () => {
     await expect(runSteps([{ goto: "/{{nothing}}" }], ctx)).rejects.toThrow(/\{\{nothing\}\}.*no earlier step kept/);
   });
 });
+
+describe("unless", () => {
+  it("runs a step only while its selector is absent", async () => {
+    const ctx = await context();
+    await runSteps([{ mark: "absent", unless: "#nope" }, { mark: "present", unless: "#q" }], ctx);
+    expect(ctx.stage.timeline.map((e) => e.title)).toEqual(["absent"]);
+  });
+});

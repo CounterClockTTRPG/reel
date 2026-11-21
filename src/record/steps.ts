@@ -49,6 +49,11 @@ export function seatsIn(steps: Step[]): string[] {
   return [...seats];
 }
 
+/** Whether something matching `selector` is on the page and visible. */
+async function visible(stage: StageLike, selector: string): Promise<boolean> {
+  return stage.page.locator(selector).first().isVisible().catch(() => false);
+}
+
 /** A key `{{name}}` refers to that no earlier step kept. */
 class MissingKey extends Error {}
 
@@ -100,8 +105,12 @@ export async function runSteps(steps: Step[], ctx: RunContext, prefix = ""): Pro
     }
     const common = typeof step === "string" ? {} : step;
     const stage = common.seat ? ctx.seat(common.seat) : ctx.stage;
-    if (common.if && (await stage.page.locator(common.if).count()) === 0) {
-      ctx.log(`  (skipped ${describeStep(step)}: nothing matches ${common.if})`);
+    if (common.if && !(await visible(stage, common.if))) {
+      ctx.log(`  (skipped ${describeStep(step)}: nothing shows ${common.if})`);
+      continue;
+    }
+    if (common.unless && (await visible(stage, common.unless))) {
+      ctx.log(`  (skipped ${describeStep(step)}: ${common.unless} shows)`);
       continue;
     }
     const stepCtx = { stage, seat: ctx.seat, state: ctx.state, page: stage.page, api: ctx.api ?? stage.page.request,

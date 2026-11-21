@@ -77,6 +77,19 @@ describe("recording a mission", () => {
     }, 120_000);
   }
 
+  it("skips, in a dry run, every scene down a chain of needs from one that isn't reachable", async () => {
+    const file = join(dir, CHAPTER);
+    const text = readFileSync(file, "utf8");
+    writeFileSync(file, "title: X\nscenes:\n  - id: a\n    steps:\n      - goto: /\n      - demo.reset: null\n        as: k\n" +
+      "  - id: b\n    needs: [a]\n    steps: [{ goto: / }]\n  - id: c\n    needs: [b]\n    steps: [{ goto: / }]\n");
+    try {
+      const result = await recordMission({ ...(await tour()), dry: true, ...quiet });
+      expect(result.skippedDry).toEqual(["b", "c"]);
+    } finally {
+      writeFileSync(file, text);
+    }
+  }, 120_000);
+
   it("runs a dry run without making a take", async () => {
     const before = (await listTakes("demo", "tour")).length;
     const result = await recordMission({ ...(await tour()), dry: true, ...quiet });
