@@ -1,0 +1,20 @@
+[Unit]
+Description=Reel: the studio for narrated videos of web applications (web UI on port 7779)
+Documentation=file:%h/claude/reel/README.md
+
+[Service]
+Type=simple
+WorkingDirectory=%h/claude/reel
+# Serves the web UI built into dist/web: run `make service` after pulling changes. The studio is ~/reel-studio
+# (REEL_STUDIO), the vault ~/.reel (REEL_DATA). The address and the host names it answers are studio.yaml's host and
+# allowed_hosts: there is no auth, so open it to the LAN only behind a firewall rule, as Tasker is.
+ExecStart=/usr/bin/env node %h/claude/reel/dist/cli/main.js serve
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
