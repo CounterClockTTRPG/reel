@@ -6,6 +6,7 @@ import { ReelError } from "../paths.js";
 import { musicCommands } from "./commands/music.js";
 import { recordCommands } from "./commands/record.js";
 import { takeCommands } from "./commands/takes.js";
+import { checkCommands } from "./commands/check.js";
 import { output, type Output } from "./output.js";
 
 const program = new Command("reel")
@@ -18,6 +19,7 @@ const out = (): Output => output(Boolean(program.opts().json));
 musicCommands(program, out);
 recordCommands(program, out);
 takeCommands(program, out);
+checkCommands(program, out);
 
 try {
   await program.parseAsync(process.argv);
@@ -25,6 +27,7 @@ try {
   if (e instanceof CommanderError) process.exit(e.exitCode === 0 ? 0 : 2);
   const code = e instanceof ReelError ? e.code : 1;
   const message = e instanceof Error ? e.message : String(e);
+  if ((e as { reported?: boolean }).reported) process.exit(code);
   if (program.opts().json) process.stdout.write(`${JSON.stringify({ error: message, code, ...(e as ReelError).details }, null, 2)}\n`);
   else process.stderr.write(`reel: ${message}\n`);
   if (!(e instanceof ReelError)) process.stderr.write(`${(e as Error)?.stack ?? ""}\n`);

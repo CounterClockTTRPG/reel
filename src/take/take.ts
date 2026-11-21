@@ -188,3 +188,20 @@ export function parseTakeRef(s: string): TakeRef {
   if (last === undefined) throw new ReelError(2, `${project}/${mission} has no takes yet: run \`reel record ${project}/${mission}\``);
   return takeRef(project, mission, last);
 }
+
+export interface SceneFiles extends TakeScene {
+  dir: string;
+  video: string;
+  duration: number;
+  events: import("../adapter/api.js").TimelineEvent[];
+}
+
+/** Where each scene of a take is recorded: its folder, video, length and timeline. */
+export function takeSceneFiles(take: TakeJson): SceneFiles[] {
+  return take.scenes.map((sc) => {
+    const dir = join(vaultDir(), "scenes", take.project, take.mission, sc.id, sc.recording);
+    const info = JSON.parse(readFileSync(join(dir, "recording.json"), "utf8"));
+    const timeline = JSON.parse(readFileSync(join(dir, "timeline.json"), "utf8"));
+    return { ...sc, dir, video: join(dir, "video.mp4"), duration: info.duration, events: timeline.events };
+  });
+}
