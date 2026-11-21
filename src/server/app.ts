@@ -57,7 +57,7 @@ export async function buildServer(opts: ServerOptions = {}): Promise<FastifyInst
   mkdirSync(takes, { recursive: true });
   await app.register(fastifyStatic, { root: takes, prefix: "/files/takes/", decorateReply: true, index: false });
   if (existsSync(join(WEB_ROOT, "index.html"))) {
-    await app.register(fastifyStatic, { root: WEB_ROOT, prefix: "/", decorateReply: false, wildcard: false });
+    await app.register(fastifyStatic, { root: WEB_ROOT, prefix: "/", decorateReply: false, wildcard: true, index: "index.html" });
     app.setNotFoundHandler((req, reply) => {
       if (req.method === "GET" && !req.url.startsWith("/api/") && !req.url.startsWith("/files/")) {
         return reply.sendFile("index.html", WEB_ROOT);

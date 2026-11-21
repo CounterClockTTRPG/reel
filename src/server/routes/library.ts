@@ -1,7 +1,22 @@
 // The shared libraries for the web UI (music, voices, effects) and the spend.
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import type { FastifyInstance } from "fastify";
-import { loadEffects } from "../../library/effects.js";
+import { cardNamed, loadEffects, renderCard, transitionNamed, type Effects } from "../../library/effects.js";
+import { run } from "../../util/proc.js";
+import { vaultDir } from "../../paths.js";
+
+/** A card template drawn with sample words, kept in the vault's previews. */
+async function cardPreview(fx: Effects, name: string, title = "The title"): Promise<string> {
+  const template = cardNamed(fx, name);
+  const dir = join(vaultDir(), "previews");
+  mkdirSync(dir, { recursive: true });
+  const out = join(dir, `card-${name}-${Math.round(statSync(template).mtimeMs)}-${title.replace(/\W+/g, "-")}.png`);
+  if (!existsSync(out)) {
+    await renderCard(readFileSync(template, "utf8"), { title, text: "A line of text under the title." }, { width: 1280, height: 720 }, out);
+  }
+  return out;
+}
 import { loadMusic, musicRoot } from "../../library/music.js";
 import { loadVoices } from "../../library/voices.js";
 import { loadStudio } from "../../model/load.js";
@@ -40,6 +55,30 @@ export async function libraryRoutes(app: FastifyInstance, ctx: ServerContext) {
   app.get("/api/library/effects", async () => {
     const fx = await loadEffects(await loadStudio(ctx.studioDir));
     return { transitions: fx.transitions, cards: Object.keys(fx.cards), overlays: Object.keys(fx.overlays) };
+  });
+
+  // Previews, made on request and kept in the vault: a card with sample words, and a 2 s transition between two cards.
+  app.get<{ Params: { name: string } }>("/api/library/effects/cards/:name/preview.png", async (req, reply) => {
+    const fx = await loadEffects(await loadStudio(ctx.studioDir));
+    const file = await cardPreview(fx, req.params.name);
+    return reply.sendFile(basename(file), dirname(file));
+  });
+
+  app.get<{ Params: { name: string } }>("/api/library/effects/transitions/:name/preview.mp4", async (req, reply) => {
+    const fx = await loadEffects(await loadStudio(ctx.studioDir));
+    const t = transitionNamed(fx, req.params.name);
+    const dir = join(vaultDir(), "previews");
+    const out = join(dir, `transition-${req.params.name}-${t.kind}-${t.length}.mp4`);
+    if (!existsSync(out)) {
+      const first = await cardPreview(fx, Object.keys(fx.cards)[0], "Before");
+      const second = await cardPreview(fx, Object.keys(fx.cards)[0], "After");
+      const hold = 1;
+      await run("ffmpeg", ["-y", "-loglevel", "error", "-loop", "1", "-framerate", "30", "-t", String(hold + t.length), "-i", first,
+        "-loop", "1", "-framerate", "30", "-t", String(hold + t.length), "-i", second, "-filter_complex",
+        `[0:v]scale=640:360,setsar=1,format=yuv420p[a];[1:v]scale=640:360,setsar=1,format=yuv420p[b];[a][b]xfade=transition=${t.kind}:duration=${t.length}:offset=${hold}[v]`,
+        "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", out]);
+    }
+    return reply.sendFile(basename(out), dir);
   });
 
   app.get("/api/spend", async () => {
