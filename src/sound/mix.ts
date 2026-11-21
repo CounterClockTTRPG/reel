@@ -133,7 +133,7 @@ export async function mixTake(ref: TakeRef, project: Project, mission: Mission, 
   writeFileSync(script, filters.join(";\n"));
   const file = join(ref.dir, "mix.mp4");
   await run("ffmpeg", ["-y", "-loglevel", "error", ...inputs, "-filter_complex_script", script, "-map", "0:v", "-map", "[a]",
-    "-map_metadata", "0", "-map_chapters", "0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", T, "-movflags", "+faststart", file]);
+    "-map_metadata", "0", "-map_chapters", "0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-t", T, "-movflags", "+faststart", file]);
   const loudness = await loudnessCheck(file, lines, plan.total, style);
   writeFileSync(join(ref.dir, "checks", "loudness.json"), JSON.stringify(loudness, null, 2));
   log(`  loudness: speech ${loudness.speechLufs} LUFS, music-only at most ${loudness.musicOnlyMaxLufs ?? "–"} LUFS (${loudness.ok ? "ok" : "too loud"})`);
