@@ -9,7 +9,14 @@
     "reel": "dist/cli/main.js"
   },
   "exports": {
-    "./adapter": "./dist/adapter/api.js"
+    "./adapter": {
+      "types": "./dist/adapter/api.d.ts",
+      "default": "./dist/adapter/api.js"
+    },
+    "./lib/*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
   },
   "engines": {
     "node": ">=24"
