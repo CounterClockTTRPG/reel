@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Fixture app</title>
+  <style>
+    body { font: 18px system-ui, sans-serif; margin: 40px; background: #f6f6f2; }
+    ul.rows { list-style: none; padding: 0; width: 420px; }
+    ul.rows li { padding: 12px; margin: 6px 0; background: #fff; border: 1px solid #ccc; border-radius: 8px; }
+    .private { margin-top: 30px; font-size: 40px; font-family: monospace; }
+    #answer { margin-top: 20px; min-height: 30px; font-size: 24px; }
+    .tall { height: 1600px; }
+  </style>
+</head>
+<body>
+  <h1>Fixture app</h1>
+  <ul class="rows"><li>First row</li><li>Second row</li><li>Third row</li></ul>
+  <input id="q" placeholder="Ask something"> <button id="go">Go</button>
+  <div id="answer"></div>
+  <div class="private">secret@example.com</div>
+  <div class="tall"></div>
+  <script>
+    document.getElementById("go").addEventListener("click", () => {
+      const q = document.getElementById("q").value;
+      setTimeout(() => { document.getElementById("answer").textContent = `The answer to ${q} is 42.`; }, 2000);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+/* The classic overlay (from delve-video): a drawn cursor with click ripples, captions with a gold label, full-screen
+   title cards and a spotlight that dims all but the element being explained. */
+#stage-cursor { position: fixed; z-index: 2147483647; pointer-events: none; width: 26px; height: 26px;
+  margin: -3px 0 0 -3px; left: -100px; top: -100px; transition: transform 90ms ease-out;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.35));
+  background: no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='M3 2l14 9-6.5 1.2L14 19l-2.6 1.2-3.4-6.8L3 18z' fill='white' stroke='black' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+#stage-cursor.down { transform: scale(.82); }
+.stage-carding #stage-cursor { opacity: 0; }
+.stage-ripple { position: fixed; z-index: 2147483646; pointer-events: none; width: 54px; height: 54px;
+  margin: -27px 0 0 -27px; border-radius: 50%; border: 3px solid rgba(255, 190, 40, .95);
+  animation: stage-ripple 600ms ease-out forwards; }
+@keyframes stage-ripple { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+#stage-caption { position: fixed; z-index: 2147483640; pointer-events: none; left: 50%; max-width: 1100px;
+  transform: translate(-50%, 12px); opacity: 0; transition: opacity 450ms ease, transform 450ms ease;
+  background: rgba(18, 22, 28, .9); color: #fff; border-radius: 14px; padding: 22px 34px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.35); font: 400 25px/1.45 "Segoe UI", system-ui, sans-serif; }
+#stage-caption.bottom { bottom: 48px; }
+#stage-caption.top { top: 40px; }
+#stage-caption.shown { opacity: 1; transform: translate(-50%, 0); }
+#stage-caption b { display: block; font-size: 15px; letter-spacing: .14em; text-transform: uppercase;
+  color: #ffc94a; margin-bottom: 6px; font-weight: 600; }
+
+#stage-card { position: fixed; inset: 0; z-index: 2147483645; pointer-events: none; display: flex;
+  flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px;
+  background: radial-gradient(ellipse at center, #232a35 0%, #0d1015 100%); color: #fff;
+  opacity: 0; transition: opacity 700ms ease; font-family: Georgia, "Times New Roman", serif; }
+#stage-card.shown { opacity: 1; }
+#stage-card h1 { margin: 0; font-size: 76px; font-weight: 400; letter-spacing: .02em; }
+#stage-card p { margin: 0; max-width: 1100px; font: 400 30px/1.5 "Segoe UI", system-ui, sans-serif; color: #c9d1dc; }
+#stage-card .rule { width: 120px; height: 3px; background: #ffc94a; border-radius: 2px; }
+
+#stage-spot { position: fixed; z-index: 2147483630; pointer-events: none; border-radius: 12px;
+  box-shadow: 0 0 0 4px rgba(255, 190, 40, .95), 0 0 0 9999px rgba(10, 12, 16, .5);
+  opacity: 0; transition: opacity 450ms ease, left 500ms ease, top 500ms ease, width 500ms ease, height 500ms ease; }
+#stage-spot.shown { opacity: 1; }
