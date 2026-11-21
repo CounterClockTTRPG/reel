@@ -2,3 +2,7 @@ node_modules/
 recordings/
 *.mp4
 *.webm
+.superpowers/
+dist/
+test-results/
+playwright-report/
