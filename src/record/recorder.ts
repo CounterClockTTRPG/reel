@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { StageLike } from "../adapter/api.js";
 import { loadAdapter } from "../adapter/load.js";
 import { loadEffects } from "../library/effects.js";
-import { missionScenes, type Chapter, type Mission, type Project } from "../model/load.js";
+import { missionScenes, sayIndexes, type Chapter, type Mission, type Project } from "../model/load.js";
 import type { Scene, Step } from "../model/schema.js";
 import { effectiveStyle } from "../model/style.js";
 import { ReelError, sceneDir, vaultDir } from "../paths.js";
@@ -186,7 +186,7 @@ async function recordScene(session: Session, scene: Scene, key: string, id: stri
   const stages = new Map([...seats].map(([k, v]) => [k, v.stage as StageLike]));
   let failure: unknown = null;
   try {
-    await runSteps(scene.steps, context(host.stage, stages, scene.id, env));
+    await runSteps(scene.steps, { ...context(host.stage, stages, scene.id, env), says: sayIndexes(scene.steps) });
   } catch (e) {
     failure = e;
     await host.stage.page.screenshot({ path: join(out, "failure.png") }).catch(() => {});

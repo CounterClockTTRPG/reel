@@ -33,6 +33,8 @@ export interface SayOptions {
   place?: "bottom" | "top";
   hold?: number;
   keep?: boolean;
+  /** The caption's number in its scene (set by the step runner from the script). */
+  n?: number;
 }
 
 /** What a step can do on screen: the stage of a scene (one per seat). */

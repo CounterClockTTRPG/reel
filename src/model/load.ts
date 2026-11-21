@@ -210,6 +210,24 @@ export async function loadMission(project: Project, key: string): Promise<Missio
   return { key, dir, project, file, mtimeMs: myaml.mtimeMs, chapters, translations };
 }
 
+/**
+ * The number of each `say` step of a scene, in the order they are written (parallel branches in order, seats
+ * included). It is the `n` of the caption's key (`<scene>/<n>`) for translations, frames and review, and it doesn't
+ * shift when an `if` skips a caption at recording time.
+ */
+export function sayIndexes(steps: Step[]): Map<Step, number> {
+  const out = new Map<Step, number>();
+  const walk = (list: Step[]) => {
+    for (const step of list) {
+      if (typeof step === "string") continue;
+      if (Array.isArray(step.parallel)) (step.parallel as Step[][]).forEach(walk);
+      else if ("say" in step) out.set(step, out.size);
+    }
+  };
+  walk(steps);
+  return out;
+}
+
 /** Every scene of a mission in order, with its chapter. */
 export function missionScenes(mission: Mission) {
   return mission.chapters.flatMap((chapter) => chapter.file.scenes.map((scene) => ({ chapter, scene })));

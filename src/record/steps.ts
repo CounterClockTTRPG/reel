@@ -14,6 +14,8 @@ export interface RunContext {
   dry: boolean;
   scene: string;
   log(msg: string): void;
+  /** The number of each say step of the scene (from `sayIndexes`), so caption keys follow the script. */
+  says?: Map<Step, number>;
 }
 
 /** A short description of a step for messages: `click "#go"`. */
@@ -51,6 +53,10 @@ export async function runSteps(steps: Step[], ctx: RunContext, prefix = ""): Pro
       resolved = resolveStep(step, ctx.adapter);
     } catch (e) {
       throw new ReelError(1, `scene "${ctx.scene}", ${where}: ${(e as Error).message}`, { scene: ctx.scene });
+    }
+    const n = ctx.says?.get(step);
+    if (resolved.name === "say" && n !== undefined) {
+      resolved.args = typeof resolved.args === "string" ? { text: resolved.args, n } : { ...(resolved.args as object), n };
     }
     const common = typeof step === "string" ? {} : step;
     const stage = common.seat ? ctx.seat(common.seat) : ctx.stage;

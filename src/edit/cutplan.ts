@@ -26,6 +26,8 @@ export interface CardSpec {
   small?: boolean;
   /** Which of the style's card templates: opening, chapter or credits. */
   template?: "opening" | "chapter" | "credits";
+  /** The line's key for the narration and translations: opening, closing, <chapter>/chapter, credits. */
+  key?: string;
 }
 
 export interface CutScene {
@@ -117,11 +119,11 @@ export function planCut(input: CutInput): CutPlan {
   const push = (s: Omit<Segment, "start" | "transition">, transition: Transition) =>
     segments.push({ ...s, transition: segments.length ? transition : null });
 
-  if (input.opening) push({ kind: "card", card: { template: "opening", ...input.opening }, from: 0, length: cardLength(input.opening) }, T.card);
+  if (input.opening) push({ kind: "card", card: { template: "opening", key: "opening", ...input.opening }, from: 0, length: cardLength(input.opening) }, T.card);
   input.chapters.forEach((chapter, ci) => {
     const into = segments.length && segments.at(-1)!.kind === "scene" ? T.chapter : T.card;
     if (input.interstitials) {
-      const card: CardSpec = { template: "chapter", title: chapter.title, text: chapter.text, number: `Chapter ${ci + 1}` };
+      const card: CardSpec = { template: "chapter", key: `${chapter.key}/chapter`, title: chapter.title, text: chapter.text, number: `Chapter ${ci + 1}` };
       push({ kind: "card", card, chapter: chapter.key, from: 0, length: CARD }, into);
     }
     chapter.scenes.forEach((scene, si) => {
@@ -143,8 +145,8 @@ export function planCut(input: CutInput): CutPlan {
       });
     });
   });
-  if (input.closing) push({ kind: "card", card: { template: "opening", ...input.closing }, from: 0, length: cardLength(input.closing) }, T.chapter);
-  if (input.credits) push({ kind: "card", card: { template: "credits", small: true, ...input.credits }, from: 0, length: cardLength(input.credits, 7) }, T.card);
+  if (input.closing) push({ kind: "card", card: { template: "opening", key: "closing", ...input.closing }, from: 0, length: cardLength(input.closing) }, T.chapter);
+  if (input.credits) push({ kind: "card", card: { template: "credits", key: "credits", small: true, ...input.credits }, from: 0, length: cardLength(input.credits, 7) }, T.card);
 
   // Each segment starts where the one before ends, less the crossfade into it.
   const placed: Segment[] = [];
@@ -165,7 +167,7 @@ export function planCut(input: CutInput): CutPlan {
         title: s.card!.number ? `${s.card!.number}: ${s.card!.title}` : s.card!.title,
         note: s.card!.text ?? "",
         ...(s.card!.spoken ? { spoken: s.card!.spoken } : {}),
-        scene: s.card!.template === "credits" ? "credits" : s.card!.template === "chapter" ? `${s.chapter}/chapter` : "opening",
+        scene: s.card!.key ?? "opening",
         ...(s.chapter ? { chapter: s.chapter } : {}),
       });
       continue;

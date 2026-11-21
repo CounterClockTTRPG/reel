@@ -78,14 +78,14 @@ export class Stage implements StageLike {
     await this.pause(0.8);
   }
 
-  async say(text: string, { label = "", spoken, spot, place = "bottom", hold, keep = false }: SayOptions = {}): Promise<void> {
+  async say(text: string, { label = "", spoken, spot, place = "bottom", hold, keep = false, n }: SayOptions = {}): Promise<void> {
     let box: Box | undefined;
     if (spot) box = await this.light(spot);
     this.event({
       kind: "say",
       title: label || text.slice(0, 40),
       note: text,
-      n: this.says++,
+      n: n ?? this.says++,
       ...(label ? { label } : {}),
       ...(spoken ? { spoken } : {}),
       ...(box ? { box } : {}),
