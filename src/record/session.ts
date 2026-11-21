@@ -2,7 +2,7 @@
 // record their own video, with the overlay, the privacy masks, the app's localStorage presets and the host's auth.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { chromium, type Browser, type BrowserContext } from "playwright";
+import { chromium, request, type APIRequestContext, type Browser, type BrowserContext } from "playwright";
 import { parse } from "yaml";
 import type { Adapter, TimelineEvent } from "../adapter/api.js";
 import type { Project } from "../model/load.js";
@@ -48,6 +48,8 @@ export interface SceneStage {
 }
 
 export interface Session {
+  /** The app's API, with the project's auth: for adapter steps that read or set things without the page. */
+  api: APIRequestContext;
   newStage(scene: string, seat: string, outDir: string, size?: { width: number; height: number }): Promise<SceneStage>;
   close(): Promise<void>;
 }
@@ -61,17 +63,27 @@ export async function openSession(opts: SessionOptions): Promise<Session> {
   const masks = maskCss([...opts.style.privacy.masks, ...(opts.adapter?.masks ?? [])]);
   const open = new Set<BrowserContext>();
 
-  let auth: { storageState?: string; extraHTTPHeaders?: Record<string, string> } = {};
+  let auth: { storageState?: string } = {};
+  /** The token, sent only to the app's own origin (never to the CDNs and other sites a page loads). */
+  let bearer: string | undefined;
+  const appOrigin = new URL(app.base).origin;
   if (app.auth === "token") {
     const token = tokenFor(opts.project.key);
     if (!token) throw new ReelError(1, `project ${opts.project.key} records with a token: set REEL_TOKEN_${opts.project.key.toUpperCase().replaceAll("-", "_")} or ~/.reel/secrets/${opts.project.key}.yaml`);
-    auth = { extraHTTPHeaders: { Authorization: `Bearer ${token}` } };
+    bearer = `Bearer ${token}`;
   } else if (app.auth === "login") {
     if (!existsSync(authFile(opts.project.key))) throw new ReelError(1, `no saved login for ${opts.project.key}: run \`reel login ${opts.project.key}\``);
     auth = { storageState: authFile(opts.project.key) };
   }
 
+  const api = await request.newContext({
+    baseURL: app.base,
+    ...(bearer ? { extraHTTPHeaders: { authorization: bearer } } : {}),
+    ...(auth.storageState ? { storageState: auth.storageState } : {}),
+  });
+
   return {
+    api,
     async newStage(scene, seat, outDir, size = opts.style.size) {
       const context = await browser.newContext({
         baseURL: app.base,
@@ -82,6 +94,20 @@ export async function openSession(opts: SessionOptions): Promise<Session> {
         ...(seat === "host" ? auth : {}),
       });
       open.add(context);
+      if (bearer && seat === "host") {
+        const authorization = bearer;
+        await context.route("**/*", (route) => {
+          const request = route.request();
+          const sameOrigin = (() => {
+            try {
+              return new URL(request.url()).origin === appOrigin;
+            } catch {
+              return false;
+            }
+          })();
+          return sameOrigin ? route.continue({ headers: { ...request.headers(), authorization } }) : route.continue();
+        });
+      }
       context.setDefaultTimeout(opts.actionTimeout ?? 30_000);
       await context.addInitScript(overlayScript(opts.overlayCss));
       await context.addInitScript(
@@ -117,6 +143,7 @@ export async function openSession(opts: SessionOptions): Promise<Session> {
     },
     async close() {
       for (const c of open) await c.close().catch(() => {});
+      await api.dispose().catch(() => {});
       await browser.close();
     },
   };

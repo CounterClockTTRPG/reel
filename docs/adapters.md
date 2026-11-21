@@ -48,6 +48,8 @@ export default {
 - `stage`: the scene's stage, with `say`, `click`, `type`, `card`, `spot`, `wait`, `mark` and the rest. Everything it
   shows goes on the timeline.
 - `page`: the Playwright page, for anything else.
+- `api`: requests to the application's own API (its base URL), signed in as the recording is. Use it, not
+  `page.request`: the token is only ever sent to the app's own origin.
 - `seat(name)`: another seat's stage.
 - `state`: the mission's state bag. `get` and `set` values that later scenes use.
 - `dry`: whether this is a dry run.

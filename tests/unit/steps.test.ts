@@ -110,3 +110,30 @@ describe("tokens", () => {
     expect(tokenFor("demo")).toBe("from-env");
   });
 });
+
+describe("the API token", () => {
+  it("goes to the app's own origin only, never to other sites the page loads", async () => {
+    const { createServer } = await import("node:http");
+    const seen: Record<string, string | undefined> = {};
+    const other = createServer((req, res) => {
+      seen.other = req.headers.authorization;
+      res.writeHead(200, { "access-control-allow-origin": "*", "content-type": "text/plain" }).end("ok");
+    });
+    await new Promise<void>((r) => other.listen(4799, "127.0.0.1", () => r()));
+    process.env.REEL_TOKEN_DEMO = "secret-token";
+    const tokenProject = { ...project, file: { ...project.file, app: { ...project.file.app, auth: "token" as const } } };
+    const s = await openSession({ project: tokenProject, style: effectiveStyle(project).style, adapter, overlayCss: "", actionTimeout: 2000 });
+    try {
+      const host = await s.newStage("t", "host", tmp());
+      const own = host.stage.page.waitForRequest((r) => r.url().endsWith("/index.html"));
+      await host.stage.page.goto("/index.html");
+      expect((await own).headers().authorization).toBe("Bearer secret-token");
+      await host.stage.page.evaluate(() => fetch("http://localhost:4799/x").then((r) => r.text()));
+      expect(seen.other).toBeUndefined();
+    } finally {
+      await s.close();
+      other.close();
+      delete process.env.REEL_TOKEN_DEMO;
+    }
+  });
+});

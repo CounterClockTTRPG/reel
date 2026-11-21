@@ -1,7 +1,7 @@
 // The adapter plugin interface, published as "reel/adapter". Reel knows no application; an adapter (built outside
 // Reel's repository) adds an application's own steps, masks and private strings. A step names whether it costs money
 // or changes state, so a dry run can skip it.
-import type { Page } from "playwright";
+import type { APIRequestContext, Page } from "playwright";
 import type { z } from "zod";
 
 export interface Box {
@@ -74,6 +74,8 @@ export interface StepContext {
   seat(name: string): StageLike;
   state: StateBag;
   page: Page;
+  /** Requests to the app's own API (its base URL), signed in as the recording is. */
+  api: APIRequestContext;
   dry: boolean;
   scene: string;
   log(msg: string): void;

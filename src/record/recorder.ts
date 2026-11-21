@@ -94,7 +94,7 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
       const scenes = plan.filter((p) => p.chapter === chapter);
       const recording = scenes.filter((p) => p.record);
       if (recording.length && chapter.file.setup.length) {
-        await backstage(session, chapter.file.setup, `${chapter.key} setup`, { opts, state, adapter });
+        await backstage(session, chapter.file.setup, `${chapter.key} setup`, { session, opts, state, adapter });
       }
       try {
         for (const p of scenes) {
@@ -118,13 +118,13 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
           log(`Scene ${p.scene.id}${opts.dry ? " (dry)" : ""}`);
           const id = newRecordingId();
           const out = opts.dry ? join(dryRoot, p.scene.id) : sceneDir(project.key, mission.key, p.scene.id, id);
-          const info = await recordScene(session, p.scene, p.key, id, out, { opts, state, adapter });
+          const info = await recordScene(session, p.scene, p.key, id, out, { session, opts, state, adapter });
           result.recorded.push(p.scene.id);
           used.push({ id: p.scene.id, chapter: chapter.key, recording: info.id, key: p.key });
         }
       } finally {
         if (recording.length && chapter.file.teardown.length) {
-          await backstage(session, chapter.file.teardown, `${chapter.key} teardown`, { opts, state, adapter }).catch((e) =>
+          await backstage(session, chapter.file.teardown, `${chapter.key} teardown`, { session, opts, state, adapter }).catch((e) =>
             log(`  teardown failed: ${(e as Error).message}`),
           );
         }
@@ -143,6 +143,7 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
 }
 
 interface SceneEnv {
+  session?: Session;
   opts: RecordOptions;
   state: StateBag;
   adapter: Awaited<ReturnType<typeof loadAdapter>>;
@@ -170,6 +171,7 @@ function context(stage: StageLike, seats: Map<string, StageLike>, scene: string,
     },
     state: env.state,
     adapter: env.adapter,
+    api: env.session?.api,
     dry: Boolean(env.opts.dry),
     scene,
     log: env.opts.log,
