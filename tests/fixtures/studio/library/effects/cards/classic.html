@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<!-- The classic card (from delve-video): a dark radial background, a serif title, a gold rule. Slots: {{title}},
+     {{text}}, {{number}} (a chapter's "Chapter 2"), {{width}}, {{height}}; {{#small}} for the credits. -->
+<body style="margin:0">
+  <div style="width:{{width}}px;height:{{height}}px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;gap:22px;color:#fff;
+    background:radial-gradient(ellipse at center,#232a35 0%,#0d1015 100%);font-family:Georgia,'Times New Roman',serif">
+    {{#number}}<div style="font:600 22px 'Segoe UI',system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;
+      color:#ffc94a">{{number}}</div>{{/number}}
+    <h1 style="margin:0;font-size:{{#small}}64{{/small}}{{^small}}{{#number}}84{{/number}}{{^number}}110{{/number}}{{/small}}px;font-weight:400;letter-spacing:.02em">{{title}}</h1>
+    <div style="width:120px;height:3px;background:#ffc94a;border-radius:2px"></div>
+    <p style="margin:0;max-width:1300px;white-space:pre-line;font:400 {{#small}}28{{/small}}{{^small}}32{{/small}}px/1.5 'Segoe UI',system-ui,
+      sans-serif;color:#c9d1dc">{{text}}</p>
+  </div>
+</body>
+</html>
