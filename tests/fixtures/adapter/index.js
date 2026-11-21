@@ -7,6 +7,10 @@ export default {
   version: "1.0.0",
   masks: [".adapter-private"],
   privateStrings: ["adapter-secret"],
+  options: z.object({ greeting: z.string().optional() }).strict(),
+  async init({ state, seat }) {
+    state.set("inits", [...(state.get("inits") ?? []), seat]);
+  },
   steps: {
     // Asks the app a question: types it, presses Go, and waits (a marked wait the edit can cut) for the answer.
     act: {

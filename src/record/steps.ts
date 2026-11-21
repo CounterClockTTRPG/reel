@@ -1,7 +1,8 @@
 // Running a scene's steps: core and adapter steps, `optional`, `if`, `parallel`, steps on another seat, `as` to keep a
 // result, and dry runs that skip (or stub) what costs money or changes state.
 import type { APIRequestContext } from "playwright";
-import type { Adapter, StageLike, StateBag } from "../adapter/api.js";
+import type { Adapter, SecretStore, StageLike, StateBag } from "../adapter/api.js";
+import { secretsFor } from "../adapter/secrets.js";
 import { resolveStep } from "../adapter/core.js";
 import { stepAction } from "../model/load.js";
 import type { Step } from "../model/schema.js";
@@ -13,6 +14,8 @@ export interface RunContext {
   state: StateBag;
   adapter: Adapter | null;
   api?: APIRequestContext;
+  secrets?: SecretStore;
+  options?: Record<string, unknown>;
   dry: boolean;
   scene: string;
   log(msg: string): void;
@@ -66,7 +69,8 @@ export async function runSteps(steps: Step[], ctx: RunContext, prefix = ""): Pro
       ctx.log(`  (skipped ${describeStep(step)}: nothing matches ${common.if})`);
       continue;
     }
-    const stepCtx = { stage, seat: ctx.seat, state: ctx.state, page: stage.page, api: ctx.api ?? stage.page.request, dry: ctx.dry, scene: ctx.scene, log: ctx.log };
+    const stepCtx = { stage, seat: ctx.seat, state: ctx.state, page: stage.page, api: ctx.api ?? stage.page.request,
+      secrets: ctx.secrets ?? secretsFor("(none)"), options: ctx.options ?? {}, dry: ctx.dry, scene: ctx.scene, log: ctx.log };
     let result: unknown;
     try {
       if (ctx.dry && (resolved.def.costs || resolved.def.changes)) {

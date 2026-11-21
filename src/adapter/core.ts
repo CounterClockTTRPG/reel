@@ -54,6 +54,10 @@ export const CORE_STEPS: Record<string, StepDef<any>> = {
       c.stage.wait(a.title, () => c.page.locator(a.until).first().waitFor({ state: a.state ?? "visible", timeout: (a.timeout ?? 300) * 1000 })),
   },
   css: { args: CORE_STEP_ARGS.css, run: (c, a: string) => c.stage.css(a) },
+  select: {
+    args: CORE_STEP_ARGS.select,
+    run: (c, a: Args<"select">) => c.stage.select(a.target, { value: a.value, label: a.label }),
+  },
 };
 
 export interface ResolvedStep {

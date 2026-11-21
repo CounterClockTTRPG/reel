@@ -58,6 +58,8 @@ export const ProjectFile = z
   .object({
     name: z.string().min(1),
     adapter: z.string().optional(),
+    /** Settings for the adapter (its seeding, say), checked by the adapter's own schema. */
+    adapter_options: z.record(z.string(), z.unknown()).optional(),
     app: z.object({
       base: z.string().url(),
       auth: z.enum(["token", "login", "none"]).default("none"),
@@ -111,6 +113,8 @@ export const CORE_STEP_ARGS = {
   mark: z.union([z.string(), z.object({ title: z.string(), note: z.string().optional() })]),
   wait: z.object({ title: z.string(), until: selector, state: z.enum(["visible", "hidden", "attached"]).optional(), timeout: z.number().optional() }),
   css: z.string(),
+  select: target.extend({ value: z.string().optional(), label: z.string().optional() })
+    .refine((a) => (a.value === undefined) !== (a.label === undefined), "select takes a value or a label (one of them)"),
 } as const;
 export type CoreStepName = keyof typeof CORE_STEP_ARGS | "parallel";
 

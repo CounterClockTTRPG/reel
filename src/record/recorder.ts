@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { join } from "node:path";
 import type { StageLike } from "../adapter/api.js";
 import { loadAdapter } from "../adapter/load.js";
+import { secretsFor } from "../adapter/secrets.js";
 import { loadEffects } from "../library/effects.js";
 import { missionScenes, sayIndexes, type Chapter, type Mission, type Project } from "../model/load.js";
 import type { Scene, Step } from "../model/schema.js";
@@ -60,6 +61,7 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
   const { project, mission, log } = opts;
   const { style } = effectiveStyle(project, mission);
   const adapter = await loadAdapter(project.file.adapter, project.dir);
+  const options = checkedOptions(project, adapter);
   const effects = await loadEffects(project.studio);
   const overlayFile = effects.overlays[style.overlay];
   if (!overlayFile) throw new ReelError(1, `no overlay "${style.overlay}" in library/effects/overlays/`);
@@ -94,7 +96,7 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
       const scenes = plan.filter((p) => p.chapter === chapter);
       const recording = scenes.filter((p) => p.record);
       if (recording.length && chapter.file.setup.length) {
-        await backstage(session, chapter.file.setup, `${chapter.key} setup`, { session, opts, state, adapter });
+        await backstage(session, chapter.file.setup, `${chapter.key} setup`, { session, options, opts, state, adapter });
       }
       try {
         for (const p of scenes) {
@@ -118,13 +120,13 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
           log(`Scene ${p.scene.id}${opts.dry ? " (dry)" : ""}`);
           const id = newRecordingId();
           const out = opts.dry ? join(dryRoot, p.scene.id) : sceneDir(project.key, mission.key, p.scene.id, id);
-          const info = await recordScene(session, p.scene, p.key, id, out, { session, opts, state, adapter });
+          const info = await recordScene(session, p.scene, p.key, id, out, { session, options, opts, state, adapter });
           result.recorded.push(p.scene.id);
           used.push({ id: p.scene.id, chapter: chapter.key, recording: info.id, key: p.key });
         }
       } finally {
         if (recording.length && chapter.file.teardown.length) {
-          await backstage(session, chapter.file.teardown, `${chapter.key} teardown`, { session, opts, state, adapter }).catch((e) =>
+          await backstage(session, chapter.file.teardown, `${chapter.key} teardown`, { session, options, opts, state, adapter }).catch((e) =>
             log(`  teardown failed: ${(e as Error).message}`),
           );
         }
@@ -142,7 +144,21 @@ async function record(opts: RecordOptions, all: { chapter: Chapter; scene: Scene
   return result;
 }
 
+/** project.yaml's adapter_options, checked by the adapter's schema (when it has one). */
+export function checkedOptions(project: Project, adapter: Awaited<ReturnType<typeof loadAdapter>>): Record<string, unknown> {
+  const raw = project.file.adapter_options ?? {};
+  if (!adapter?.options) return raw;
+  const parsed = adapter.options.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const where = issue.path.join(".") || (issue as { keys?: string[] }).keys?.join(", ") || "";
+    throw new ReelError(1, `project ${project.key}: adapter_options${where ? `.${where}` : ""}: ${issue.message}`);
+  }
+  return parsed.data;
+}
+
 interface SceneEnv {
+  options?: Record<string, unknown>;
   session?: Session;
   opts: RecordOptions;
   state: StateBag;
@@ -172,6 +188,8 @@ function context(stage: StageLike, seats: Map<string, StageLike>, scene: string,
     state: env.state,
     adapter: env.adapter,
     api: env.session?.api,
+    secrets: secretsFor(env.opts.project.key),
+    options: env.options ?? {},
     dry: Boolean(env.opts.dry),
     scene,
     log: env.opts.log,
@@ -184,7 +202,10 @@ async function recordScene(session: Session, scene: Scene, key: string, id: stri
   const host = await session.newStage(scene.id, "host", out);
   const seats = new Map<string, SceneStage>();
   for (const name of seatNames) seats.set(name, await session.newStage(scene.id, name, out));
-  if (env.adapter?.init) await env.adapter.init({ page: host.stage.page, state: env.state });
+  if (env.adapter?.init) {
+    await env.adapter.init({ page: host.stage.page, state: env.state, seat: "host" });
+    for (const [name, s] of seats) await env.adapter.init({ page: s.stage.page, state: env.state, seat: name });
+  }
   const stages = new Map([...seats].map(([k, v]) => [k, v.stage as StageLike]));
   let failure: unknown = null;
   try {

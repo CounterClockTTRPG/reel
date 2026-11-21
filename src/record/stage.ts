@@ -231,6 +231,12 @@ export class Stage implements StageLike {
     }
   }
 
+  async select(target: string, pick: { value?: string; label?: string }): Promise<void> {
+    await this.hover(target, { rest: 0.4 });
+    await this.loc(target).selectOption(pick.value !== undefined ? { value: pick.value } : { label: pick.label! });
+    await this.pause(1);
+  }
+
   async css(content: string): Promise<void> {
     await this.page.addStyleTag({ content });
   }

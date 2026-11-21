@@ -3,6 +3,9 @@
 // or changes state, so a dry run can skip it.
 import type { APIRequestContext, Page } from "playwright";
 import type { z } from "zod";
+import type { SecretStore } from "./secrets.js";
+
+export type { SecretStore };
 
 export interface Box {
   x: number;
@@ -60,6 +63,8 @@ export interface StageLike {
   /** A marked wait: a stretch the edit cuts or speeds up. */
   wait<T>(title: string, fn: () => Promise<T>): Promise<T>;
   css(content: string): Promise<void>;
+  /** Glides to a select and picks an option, by its value or its label. */
+  select(target: string, pick: { value?: string; label?: string }): Promise<void>;
   settled(target: string, opts?: { quiet?: number; timeout?: number }): Promise<void>;
 }
 
@@ -76,6 +81,10 @@ export interface StepContext {
   page: Page;
   /** Requests to the app's own API (its base URL), signed in as the recording is. */
   api: APIRequestContext;
+  /** The adapter's secrets, kept in the vault (never in the studio). */
+  secrets: SecretStore;
+  /** project.yaml's adapter_options, checked by `Adapter.options`. */
+  options: Record<string, unknown>;
   dry: boolean;
   scene: string;
   log(msg: string): void;
@@ -98,7 +107,10 @@ export interface Adapter {
   steps: Record<string, StepDef<any>>;
   masks?: string[];
   privateStrings?: string[];
-  init?(ctx: { page: Page; state: StateBag }): Promise<void>;
+  /** The schema of project.yaml's adapter_options. */
+  options?: z.ZodType<Record<string, unknown>>;
+  /** Before each scene's first step, on every seat's page (host included). */
+  init?(ctx: { page: Page; state: StateBag; seat: string }): Promise<void>;
 }
 
 export function defineAdapter(adapter: Adapter): Adapter {
