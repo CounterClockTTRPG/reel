@@ -8,6 +8,7 @@ import { recordCommands } from "./commands/record.js";
 import { takeCommands } from "./commands/takes.js";
 import { checkCommands } from "./commands/check.js";
 import { cutCommands } from "./commands/cut.js";
+import { voiceCommands } from "./commands/voice.js";
 import { output, type Output } from "./output.js";
 
 const program = new Command("reel")
@@ -22,6 +23,7 @@ recordCommands(program, out);
 takeCommands(program, out);
 checkCommands(program, out);
 cutCommands(program, out);
+voiceCommands(program, out);
 
 try {
   await program.parseAsync(process.argv);
