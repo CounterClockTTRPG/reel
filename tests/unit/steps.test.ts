@@ -137,3 +137,18 @@ describe("the API token", () => {
     }
   });
 });
+
+describe("state in steps", () => {
+  it("fills {{key}} in a step's text from what an earlier step kept", async () => {
+    const ctx = await context();
+    ctx.state.set("page", "index.html");
+    await runSteps([{ goto: "/{{page}}" }, { mark: "on {{page}}" }], ctx);
+    expect(ctx.stage.page.url()).toMatch(/\/index\.html$/);
+    expect(ctx.stage.timeline.some((e) => e.title === "on index.html")).toBe(true);
+  });
+
+  it("fails a step whose {{key}} nothing kept, naming the key", async () => {
+    const ctx = await context();
+    await expect(runSteps([{ goto: "/{{nothing}}" }], ctx)).rejects.toThrow(/\{\{nothing\}\}.*no earlier step kept/);
+  });
+});

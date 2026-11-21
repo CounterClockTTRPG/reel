@@ -49,9 +49,40 @@ export function seatsIn(steps: Step[]): string[] {
   return [...seats];
 }
 
+/** A key `{{name}}` refers to that no earlier step kept. */
+class MissingKey extends Error {}
+
+/** The step with every `{{key}}` in its text replaced by what an earlier step kept under that key (`as: key`). */
+export function fillState(step: Step, state: StateBag): Step {
+  const fill = (value: unknown): unknown => {
+    if (typeof value === "string") {
+      return value.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key: string) => {
+        if (!state.has(key) || state.get(key) === undefined || state.get(key) === null) throw new MissingKey(key);
+        const v = state.get(key);
+        return typeof v === "object" ? JSON.stringify(v) : String(v);
+      });
+    }
+    if (Array.isArray(value)) return value.map(fill);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, k === "parallel" ? v : fill(v)]));
+    return value;
+  };
+  return fill(step) as Step;
+}
+
 export async function runSteps(steps: Step[], ctx: RunContext, prefix = ""): Promise<void> {
-  for (const [i, step] of steps.entries()) {
+  for (const [i, written] of steps.entries()) {
     const where = `${prefix}step ${i + 1}`;
+    let step: Step;
+    try {
+      step = typeof written === "string" || "parallel" in written ? written : fillState(written, ctx.state);
+    } catch (e) {
+      if (!(e instanceof MissingKey)) throw e;
+      if (ctx.dry) {
+        ctx.log(`  (dry: skipped ${describeStep(written)}: no "${e.message}" from a real run yet)`);
+        continue;
+      }
+      throw new ReelError(1, `scene "${ctx.scene}", ${where} (${describeStep(written)}): {{${e.message}}}: no earlier step kept "${e.message}" (as: ${e.message})`, { scene: ctx.scene });
+    }
     if (typeof step !== "string" && "parallel" in step) {
       const lists = step.parallel as Step[][];
       await Promise.all(lists.map((list, j) => runSteps(list, ctx, `${where}, branch ${j + 1}, `)));
@@ -63,7 +94,7 @@ export async function runSteps(steps: Step[], ctx: RunContext, prefix = ""): Pro
     } catch (e) {
       throw new ReelError(1, `scene "${ctx.scene}", ${where}: ${(e as Error).message}`, { scene: ctx.scene });
     }
-    const n = ctx.says?.get(step);
+    const n = ctx.says?.get(written);
     if (resolved.name === "say" && n !== undefined) {
       resolved.args = typeof resolved.args === "string" ? { text: resolved.args, n } : { ...(resolved.args as object), n };
     }
