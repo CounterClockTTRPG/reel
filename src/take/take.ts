@@ -6,7 +6,7 @@ import { join, relative } from "node:path";
 import { missionScenes, type Mission } from "../model/load.js";
 import { effectiveStyle } from "../model/style.js";
 import { sceneKey } from "../record/cache.js";
-import { ReelError, takeDir, vaultDir } from "../paths.js";
+import { assertSlug, ReelError, takeDir, vaultDir } from "../paths.js";
 
 export interface TakeScene {
   id: string;
@@ -48,6 +48,9 @@ export interface TakeRef {
 export const takesRoot = (project: string, mission: string) => join(vaultDir(), "takes", project, mission);
 
 export function takeRef(project: string, mission: string, n: number): TakeRef {
+  assertSlug(project, "project");
+  assertSlug(mission, "mission");
+  if (!Number.isInteger(n) || n < 1) throw new ReelError(2, `take number ${n} is not a positive whole number`);
   return { project, mission, n, dir: takeDir(project, mission, n) };
 }
 

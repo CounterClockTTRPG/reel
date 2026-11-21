@@ -38,6 +38,8 @@ export function sceneDir(project: string, mission: string, scene: string, record
 }
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
+/** A language code: en, nl, pt-BR. */
+export const LANG = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/;
 
 /** Project, mission and scene names are slugs: lower case, digits and dashes. */
 export function assertSlug(s: string, what: string): void {

@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { sayIndexes, stepAction, type Mission } from "../model/load.js";
 import type { Card } from "../model/schema.js";
+import { LANG, ReelError } from "../paths.js";
 import { writeYamlPreserving } from "../util/yamlfile.js";
 
 export const sourceHash = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 12);
@@ -52,6 +53,7 @@ export function translationStatus(mission: Mission, lang: string): TranslationSt
 
 /** Writes one translated line (with the hash of the source line it translates). */
 export async function setTranslation(mission: Mission, lang: string, key: string, text: string, expectMtimeMs?: number): Promise<number> {
+  if (!LANG.test(lang)) throw new ReelError(2, `"${lang}" is not a language code (en, nl, pt-BR)`);
   const source = sourceLines(mission)[key];
   if (source === undefined) throw new Error(`no line "${key}" in ${mission.project.key}/${mission.key}`);
   const dir = join(mission.dir, "translations");

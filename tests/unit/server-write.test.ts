@@ -99,3 +99,20 @@ describe("the write API", () => {
     expect(res.body.details.estimate.usd).toBeGreaterThan(0);
   });
 });
+
+describe("the write API refuses paths outside the studio", () => {
+  it("refuses a chapter name that climbs out of the mission", async () => {
+    const res = await call("PUT", "/api/projects/demo/missions/tour/chapters/..%2F..%2F..%2F..%2Fstudio", { yaml: "x: 1\n" });
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses a language that climbs out of the translations", async () => {
+    const res = await call("PUT", "/api/projects/demo/missions/tour/translations/..%2F..%2Fevil", { key: "intro/0", text: "x" });
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses a project or mission key that isn't a slug", async () => {
+    expect((await call("GET", "/api/projects/..%2F..%2Fetc")).status).toBe(400);
+    expect((await call("GET", "/api/takes/demo/..%2Ftour/1")).status).toBe(400);
+  });
+});

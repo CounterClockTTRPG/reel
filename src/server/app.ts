@@ -6,7 +6,7 @@ import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import { JobRunner } from "../jobs/runner.js";
 import { FilmError, loadStudio } from "../model/load.js";
-import { ReelError, studioDir as defaultStudio, vaultDir } from "../paths.js";
+import { assertSlug, LANG, ReelError, studioDir as defaultStudio, vaultDir } from "../paths.js";
 import { jobRoutes } from "./routes/jobs.js";
 import { libraryRoutes } from "./routes/library.js";
 import { readRoutes } from "./routes/read.js";
@@ -45,6 +45,20 @@ export async function buildServer(opts: ServerOptions = {}): Promise<FastifyInst
   app.addHook("onRequest", async (req, reply) => {
     const host = (req.headers.host ?? "").replace(/:\d+$/, "");
     if (!allowed.has(host)) return reply.code(421).send({ detail: `unknown host "${host}": add it to allowed_hosts in studio.yaml` });
+  });
+
+  // Every route parameter names something inside the studio or the vault: slugs, a take number, a language code.
+  // Nothing else gets through, so no parameter can climb out of its folder.
+  app.addHook("preHandler", async (req) => {
+    const params = (req.params ?? {}) as Record<string, string>;
+    for (const [name, value] of Object.entries(params)) {
+      if (name === "*" || name === "id") continue;
+      if (name === "n") {
+        if (!/^\d+$/.test(value)) throw new ReelError(2, `take number "${value}" is not a number`);
+      } else if (name === "lang") {
+        if (!LANG.test(value)) throw new ReelError(2, `"${value}" is not a language code (en, nl, pt-BR)`);
+      } else assertSlug(value, name === "p" ? "project" : name === "m" ? "mission" : name === "c" ? "chapter" : name);
+    }
   });
 
   app.setErrorHandler((e, _req, reply) => {

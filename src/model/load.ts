@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import type { z } from "zod";
-import { ReelError, studioDir } from "../paths.js";
+import { assertSlug, ReelError, studioDir } from "../paths.js";
 import { lineAt, readYamlDoc, type YamlDoc } from "../util/yamlfile.js";
 import {
   ChapterFile,
@@ -151,6 +151,7 @@ export async function loadStudio(dir = studioDir()): Promise<Studio> {
 }
 
 export async function loadProject(studio: Studio, key: string): Promise<Project> {
+  assertSlug(key, "project");
   const dir = join(studio.dir, "projects", key);
   const file = join(dir, "project.yaml");
   if (!existsSync(file)) throw new ReelError(2, `No project "${key}" in the studio`);
@@ -159,6 +160,7 @@ export async function loadProject(studio: Studio, key: string): Promise<Project>
 }
 
 export async function loadMission(project: Project, key: string): Promise<Mission> {
+  assertSlug(key, "mission");
   const studio = project.studio.dir;
   const dir = join(project.dir, "missions", key);
   const mfile = join(dir, "mission.yaml");
@@ -167,6 +169,7 @@ export async function loadMission(project: Project, key: string): Promise<Missio
   const chapters: Chapter[] = [];
   const seen = new Map<string, string>();
   for (const ck of file.chapters) {
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(ck)) throw new FilmError(relative(studio, mfile).replaceAll("\\", "/"), lineAt(myaml, ["chapters"]), `chapter "${ck}" is not a file name (lower case letters, digits and dashes)`);
     const path = join(dir, "chapters", `${ck}.yaml`);
     const { value, yaml } = await parseFile(ChapterFile, path, studio);
     const where = rel(studio, path);
