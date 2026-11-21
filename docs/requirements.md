@@ -16,13 +16,20 @@ frames by hand, wording changes that meant code changes, private data on screen)
 
 ## Shape
 
+Amended 2026-11-21 by the design ([docs/superpowers/specs/2026-11-21-reel-design.md](superpowers/specs/2026-11-21-reel-design.md)):
+Reel is a **studio**. Projects → missions (a video to make) → takes (recordings of it) are managed centrally, in a
+web UI and from the CLI, with shared libraries of music, voices and effects, and a style per project. Reel is generic:
+it is pointed at a web URL and knows no application; adapters are plugins built separately.
+
 - **A command-line tool** (`reel`) does the work: record, cut, voice, score, package. Each step reads files and writes
   files, so a step can be run again alone, from a terminal, a Claude session or CI.
-- **A small local web page** (`reel review`) shows a take for approval: one frame per caption with its spoken line, the
+- **A web UI** (`reel serve`, amended: a Tasker-like app over the same files, not only a review page) manages the
+  studio and shows a take for approval: one frame per caption with its spoken line, the
   scenes to approve or flag, and the finished video with its YouTube package. It serves files from the project; it is
   not a hosted service and has no accounts.
-- **A film** is a folder in the user's own repository: a script, a config and the app adapter's steps. Reel itself
-  holds no films.
+- **A mission** (amended: was "a film in the user's own repository") is a folder in the central studio
+  (`~/reel-studio`, the owner's own git repository): `mission.yaml`, its chapters' scenes and translations. Reel's
+  repository holds no missions; recordings and takes live in `~/.reel`, never in git.
 
 ## Goals
 
@@ -36,7 +43,7 @@ frames by hand, wording changes that meant code changes, private data on screen)
 ## Non-goals
 
 - A general video editor. Reel edits by rules (cut the waits, crossfade, draw callouts), not on a timeline.
-- Recording desktop applications or games. Web applications in a Chromium browser only.
+- Recording desktop applications or games **in milestone 1** (amended: the Godot driver is milestone 2).
 - Uploading to YouTube. Reel writes the package; the owner uploads it.
 - A hosted, multi-user service.
 
@@ -133,6 +140,34 @@ Each requirement has an id for the backlog. **MVP** marks what the first version
   the changed lines (the TTS cache does that already).
 - **KEEP-3:** A dry run in CI on each release of the application, failing when a film's steps no longer find their
   elements.
+
+### Studio (STUDIO) (added)
+
+- **STUDIO-1 (MVP):** The studio and the vault: projects → missions → takes as files in `~/reel-studio`, recordings,
+  takes and caches in `~/.reel`; a take is a numbered assembly of recorded scenes.
+- **STUDIO-2 (MVP):** Project style (voice, languages, music moods, loudness, overlay, cards, transitions, size,
+  privacy) inherited by missions, which override it key by key.
+- **STUDIO-3 (MVP):** The music library: `reel music scan`, tracks with title, artist, licence, attribution, moods;
+  scenes pick music by mood or file; credits from the tracks used.
+- **STUDIO-4 (MVP):** The effects library: named transitions, card templates, overlay themes.
+- **STUDIO-5 (MVP):** The voices library: named voices with provider, model, voice id and price.
+- **STUDIO-6 (MVP):** Reel is generic: an adapter plugin interface (`defineAdapter`), adapters built outside Reel.
+- **STUDIO-7 (MVP):** Subtitles per language from written translations, stale ones marked (replaces PUB-2's subtitles).
+
+### Web UI (WEB) (added)
+
+- **WEB-1 (MVP):** `reel serve`: one server on the LAN like Tasker, a JSON API over the same code as the CLI, jobs
+  with streamed logs and a per-mission lock shared with the CLI.
+- **WEB-2 (MVP):** Studio, project (style form) and mission screens (effective style, YAML scene editor, translations,
+  takes, record and make).
+- **WEB-3 (MVP):** Library screens: music (play, moods, used by), voices (sample line), effects (previews).
+- **WEB-4 (MVP):** Spend: TTS spend by project and mission, and the next run's estimate.
+
+### Other applications (APP) (added, milestone 2)
+
+- **APP-1:** The overlay drawn in post from the timeline, for drivers without a page.
+- **APP-2:** A Godot driver: an addon answering steps over a local socket, the window captured by ffmpeg; a Driftward
+  mission.
 
 ## Constraints
 
