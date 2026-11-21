@@ -41,7 +41,7 @@ describe("loading a studio", () => {
 
   it("accepts an adapter step without knowing it", async () => {
     const m = await tour();
-    expect(m.chapters[0].file.scenes[1].steps[1]).toEqual({ "demo.act": { as: "answer" } });
+    expect(m.chapters[0].file.scenes[1].steps[0]).toEqual({ "demo.act": { text: "kobold" }, as: "answer" });
   });
 
   it("parses parallel steps", async () => {

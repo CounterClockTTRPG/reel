@@ -7,8 +7,8 @@ scenes:
       - say: { label: Home, text: This is the home page., spot: ul.rows }
   - id: search
     steps:
-      - type: { target: "#q", text: kobold }
-      - demo.act: { as: answer }
+      - demo.act: { text: kobold }
+        as: answer
       - say: The answer is in.
   - id: result
     needs: [search]
